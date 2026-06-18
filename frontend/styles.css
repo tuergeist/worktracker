@@ -343,6 +343,7 @@ html, body {
   color: #fff;
   box-shadow: 0 3px 10px rgba(46,125,50,0.3);
 }
+.bucket--muted { opacity: 0.4; }
 
 /* ── Exact override ─────────────────────────────────────── */
 .exact-override {
@@ -418,6 +419,7 @@ html, body {
   color: var(--primary-dark);
   font-variant-numeric: tabular-nums;
 }
+.slider-wrap--muted { opacity: 0.4; }
 
 /* ── Tag pills ──────────────────────────────────────────── */
 .tag-row {

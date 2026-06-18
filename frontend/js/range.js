@@ -117,14 +117,15 @@ function renderBuckets() {
   local.buckets.forEach((b, i) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "bucket" + (local.bucketIdx === i ? " bucket--selected" : "");
+    const muted = local.override != null ? " bucket--muted" : ""; // slider active
+    btn.className = "bucket" + (local.bucketIdx === i ? " bucket--selected" : "") + muted;
     btn.textContent = `${b.label} m`;
     btn.onclick = () => {
       local.bucketIdx = i;
       local.override = null; // selecting a bucket clears the override
-      hideSlider();
       renderBuckets();
       renderExact();
+      updateSliderDisabled(); // grey out the slider while a bucket is active
       updateSaveState();
       haptic("light");
     };
@@ -162,9 +163,17 @@ function toggleSlider() {
   local.bucketIdx = null;
   syncSliderOut(slider.value);
   renderExact();
-  renderBuckets();
+  renderBuckets();          // buckets get greyed while slider is active
+  updateSliderDisabled();   // slider itself is active → enabled
   updateSaveState();
   haptic("light");
+}
+
+// Slider is greyed (but still draggable) while a bucket is the active input.
+// Dragging it switches back to slider mode. Buckets behave the same way.
+function updateSliderDisabled() {
+  const wrap = document.getElementById("range-slider-wrap");
+  wrap.classList.toggle("slider-wrap--muted", local.bucketIdx != null);
 }
 
 function syncSliderOut(v) {
@@ -177,7 +186,8 @@ function onSliderInput(e) {
   local.bucketIdx = null;    // clear bucket selection
   syncSliderOut(v);
   renderExact();
-  renderBuckets();
+  renderBuckets();           // keep buckets greyed while sliding
+  updateSliderDisabled();
   updateSaveState();
 }
 

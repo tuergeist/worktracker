@@ -1,6 +1,7 @@
 "use strict";
 
 import { api, store, statBox, escapeHtml, show, hide, onUserChange } from "./store.js";
+import { lineChart } from "./chart.js";
 
 const local = {
   clubs: [],
@@ -152,11 +153,13 @@ async function loadStats() {
 function renderStats(stats) {
   const summary = document.getElementById("club-stats-summary");
   const tagWrap = document.getElementById("club-tag-counts");
+  const chart = document.getElementById("club-chart");
   const hist = document.getElementById("shot-history");
 
   if (stats.shots === 0) {
     summary.innerHTML = `<p class="empty">Noch keine Schläge — los geht's! 🏌️</p>`;
     tagWrap.innerHTML = "";
+    chart.innerHTML = "";
     hist.innerHTML = "";
     return;
   }
@@ -173,6 +176,15 @@ function renderStats(stats) {
   tagWrap.innerHTML = tags.length
     ? tags.map(([t, n]) => `<span class="tag-count">${escapeHtml(t)} <b>${n}</b></span>`).join("")
     : "";
+
+  // Trend: average carry per day (carry_trend is ascending by date)
+  const points = (stats.carry_trend || []).map((d) => ({
+    label: d.date.slice(5).split("-").reverse().join("."), // YYYY-MM-DD -> DD.MM
+    value: d.avg_carry,
+  }));
+  chart.innerHTML = points.length >= 2
+    ? lineChart(points, { unit: "m" })
+    : `<p class="empty">Mehr Daten für einen Trend nötig.</p>`;
 
   hist.innerHTML = stats.history
     .map((s) => {

@@ -1,6 +1,13 @@
 "use strict";
 
 import { api, store, statBox, escapeHtml, show, hide, onUserChange } from "./store.js";
+import { lineChart } from "./chart.js";
+
+function chartLabel(playedAt) {
+  return new Date(playedAt + "Z").toLocaleDateString("de-DE", {
+    day: "2-digit", month: "2-digit",
+  });
+}
 
 const local = {
   exercises: [],
@@ -166,6 +173,16 @@ function renderStats(stats, sessions) {
       ${statBox(stats.last_total_putts, "Letzte")}
       ${statBox(stats.avg_one_putt_pct + "%", "Ø 1-Putt-Quote")}`;
   }
+
+  // Trend: total putts per session over time (history is oldest -> newest)
+  const chart = document.getElementById("putt-chart");
+  const points = stats.history.map((h) => ({
+    label: chartLabel(h.played_at),
+    value: h.total_putts,
+  }));
+  chart.innerHTML = points.length >= 2
+    ? lineChart(points)
+    : `<p class="empty">Mehr Daten für einen Trend nötig.</p>`;
 
   const hist = document.getElementById("history");
   hist.innerHTML = sessions

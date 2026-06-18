@@ -79,6 +79,7 @@ def club_stats(shots: List[dict]) -> dict:
             "avg_drift": None,
             "avg_abs_drift": None,
             "tag_counts": {},
+            "carry_trend": [],
             "history": [],
         }
 
@@ -89,6 +90,16 @@ def club_stats(shots: List[dict]) -> dict:
         for t in s["tags"]:
             tag_counts[t] = tag_counts.get(t, 0) + 1
 
+    # Carry trend: average carry per calendar day, ascending (oldest first).
+    by_day: dict = {}
+    for s in shots:
+        day = s["played_at"][:10]  # "YYYY-MM-DD" (UTC-naive, see project-context)
+        by_day.setdefault(day, []).append(s["carry_m"])
+    carry_trend = [
+        {"date": day, "avg_carry": round(sum(v) / len(v), 1), "shots": len(v)}
+        for day, v in sorted(by_day.items())
+    ]
+
     n = len(shots)
     return {
         "shots": n,
@@ -98,5 +109,6 @@ def club_stats(shots: List[dict]) -> dict:
         "avg_drift": round(sum(drifts) / n, 1),          # signed bias
         "avg_abs_drift": round(sum(abs(d) for d in drifts) / n, 1),  # dispersion
         "tag_counts": tag_counts,
+        "carry_trend": carry_trend,  # ascending by day
         "history": shots,  # newest-first; frontend renders recent ones
     }

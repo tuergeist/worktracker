@@ -1,0 +1,12 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+backend/worktracker.db
+data
+_bmad
+_bmad-output
+.claude
+.mcp.json
+diary
+*.md

@@ -1,0 +1,13 @@
+services:
+  app:
+    build: .
+    image: worktracker
+    container_name: worktracker
+    ports:
+      - "8080:8000"
+    volumes:
+      # Persist the SQLite database outside the container
+      - ./data:/app/data
+    environment:
+      - WT_DB=/app/data/worktracker.db
+    restart: unless-stopped

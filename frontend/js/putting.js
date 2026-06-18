@@ -1,251 +1,326 @@
 "use strict";
 
-import { api, store, statBox, escapeHtml, show, hide, onUserChange } from "./store.js";
+import { api, store, onUserChange, escapeHtml } from "./store.js";
+import { openSheet, closeSheet, haptic } from "./ui.js";
 import { lineChart } from "./chart.js";
 
+const BUCKETS = ["1", "2", "3", "4+"];
+const LABELS = { "1": "1-Putt", "2": "2-Putts", "3": "3-Putts", "4+": "4+-Putts" };
+
+const local = {
+  exercises: [],
+  selected: null,
+  dist: { "1": 0, "2": 0, "3": 0, "4+": 0 },
+  lastBucket: null, // most recently incremented bucket (for --active)
+};
+
+function $(id) { return document.getElementById(id); }
+
+function resetDist() {
+  local.dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
+  local.lastBucket = null;
+}
+
+function assigned() {
+  return BUCKETS.reduce((s, b) => s + local.dist[b], 0);
+}
+
+// short date like "18.06.26"
+function shortDate(playedAt) {
+  return new Date(playedAt + "Z").toLocaleDateString("de-DE", {
+    day: "2-digit", month: "2-digit", year: "2-digit",
+  });
+}
+
+// chart axis label
 function chartLabel(playedAt) {
   return new Date(playedAt + "Z").toLocaleDateString("de-DE", {
     day: "2-digit", month: "2-digit",
   });
 }
 
-const BUCKETS = ["1", "2", "3", "4+"];
-
-const local = {
-  exercises: [],
-  selected: null,
-  dist: { "1": 0, "2": 0, "3": 0, "4+": 0 },
-  editingId: null,
-};
-
 // ----------------------------------------------------------- exercises
 async function loadExercises() {
   local.exercises = await api.get("/api/exercises");
-  renderExercises();
+  if (!local.selected || !local.exercises.some((e) => e.id === local.selected.id)) {
+    local.selected = local.exercises[0] || null;
+    resetDist();
+  } else {
+    // keep selection in sync with fresh data (e.g. after edit)
+    local.selected = local.exercises.find((e) => e.id === local.selected.id);
+  }
+  renderPickerLabel();
+  renderGrid();
 }
 
-function renderExercises() {
-  const list = document.getElementById("exercise-list");
-  list.innerHTML = "";
-  local.exercises.forEach((ex) => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (local.selected?.id === ex.id ? " active" : "");
-    chip.onclick = () => selectExercise(ex);
-
-    const label = document.createElement("span");
-    label.textContent = `${ex.name} · ${ex.num_balls} Bälle`;
-    chip.appendChild(label);
-
-    const edit = document.createElement("button");
-    edit.className = "icon";
-    edit.textContent = "✎";
-    edit.title = "Übung bearbeiten";
-    edit.onclick = (e) => { e.stopPropagation(); openForm(ex); };
-    chip.appendChild(edit);
-
-    if (!ex.is_default) {
-      const del = document.createElement("button");
-      del.className = "icon";
-      del.textContent = "×";
-      del.title = "Übung löschen";
-      del.onclick = async (e) => {
-        e.stopPropagation();
-        if (!confirm(`Übung „${ex.name}" löschen?`)) return;
-        await api.send(`/api/exercises/${ex.id}`, "DELETE");
-        if (local.selected?.id === ex.id) {
-          local.selected = null;
-          hide("record-panel");
-          hide("stats-panel");
-        }
-        await loadExercises();
-      };
-      chip.appendChild(del);
-    }
-    list.appendChild(chip);
-  });
+function renderPickerLabel() {
+  const label = $("putten-picker-label");
+  if (!local.selected) {
+    label.textContent = "Keine Übung";
+    return;
+  }
+  label.textContent = `${local.selected.name} · ${local.selected.num_balls} Bälle`;
 }
 
 function selectExercise(ex) {
   local.selected = ex;
-  local.dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
-  renderExercises();
-  renderRecorder();
+  resetDist();
+  renderPickerLabel();
+  renderGrid();
   loadStats();
-  show("record-panel");
-  show("stats-panel");
 }
 
-// ------------------------------------------------- create/edit exercise
-function openForm(ex = null) {
-  local.editingId = ex ? ex.id : null;
-  document.getElementById("ex-name").value = ex ? ex.name : "";
-  document.getElementById("ex-distance").value = ex ? ex.distance_m : "";
-  document.getElementById("ex-balls").value = ex ? ex.num_balls : 10;
-  document.getElementById("ex-submit").textContent = ex ? "Speichern" : "Anlegen";
-  document.getElementById("exercise-form").hidden = false;
-}
+// ----------------------------------------------------------- counter grid
+function renderGrid() {
+  const grid = $("putten-grid");
+  if (!local.selected) { grid.innerHTML = ""; renderProgress(); return; }
 
-function closeForm() {
-  local.editingId = null;
-  document.getElementById("exercise-form").reset();
-  document.getElementById("ex-balls").value = 10;
-  document.getElementById("exercise-form").hidden = true;
-}
+  const total = assigned();
+  const atMax = total >= local.selected.num_balls;
 
-// ----------------------------------------------------------- recorder
-function renderRecorder() {
-  document.getElementById("record-title").textContent =
-    `Session erfassen — ${local.selected.name}`;
-  const wrap = document.getElementById("balls");
-  wrap.innerHTML = "";
-
-  const labels = { "1": "1-Putt", "2": "2-Putts", "3": "3-Putts", "4+": "4+-Putts" };
-  BUCKETS.forEach((bucket) => {
-    const ball = document.createElement("div");
-    ball.className = "ball";
-    ball.innerHTML = `
-      <div class="label">${labels[bucket]}</div>
-      <div class="stepper">
-        <button type="button" data-d="-1">−</button>
-        <span class="value">${local.dist[bucket]}</span>
-        <button type="button" data-d="1">+</button>
+  grid.innerHTML = BUCKETS.map((bucket) => {
+    const v = local.dist[bucket];
+    const cls =
+      bucket === local.lastBucket ? "counter-cell counter-cell--active"
+      : v === 0 ? "counter-cell counter-cell--zero"
+      : "counter-cell";
+    const minusDis = v === 0 ? " disabled" : "";
+    const plusDis = atMax ? " disabled" : "";
+    return `
+      <div class="${cls}" role="group" aria-label="${LABELS[bucket]}, ${v} mal">
+        <div class="counter-cell__dot"></div>
+        <span class="counter-cell__label">${LABELS[bucket]}</span>
+        <div class="counter-cell__controls">
+          <button class="counter-btn counter-btn--minus" data-bucket="${bucket}" data-d="-1" aria-label="Weniger"${minusDis}>−</button>
+          <span class="counter-cell__value">${v}</span>
+          <button class="counter-btn counter-btn--plus" data-bucket="${bucket}" data-d="1" aria-label="Mehr"${plusDis}>+</button>
+        </div>
       </div>`;
-    ball.querySelectorAll("button").forEach((btn) => {
-      btn.onclick = () => {
-        const d = parseInt(btn.dataset.d, 10);
-        const next = local.dist[bucket] + d;
-        if (next < 0) return;
-        const total = BUCKETS.reduce((s, b) => s + local.dist[b], 0);
-        if (d > 0 && total >= local.selected.num_balls) return;
-        local.dist[bucket] = next;
-        ball.querySelector(".value").textContent = local.dist[bucket];
-        renderLiveSummary();
-      };
-    });
-    wrap.appendChild(ball);
+  }).join("");
+
+  grid.querySelectorAll(".counter-btn").forEach((btn) => {
+    btn.onclick = () => step(btn.dataset.bucket, parseInt(btn.dataset.d, 10));
   });
-  renderLiveSummary();
+
+  renderProgress();
 }
 
-function totalPutts() {
-  return BUCKETS.reduce((s, b) => s + (b === "4+" ? 4 : parseInt(b)) * local.dist[b], 0);
-}
-
-function renderLiveSummary() {
-  const assigned = BUCKETS.reduce((s, b) => s + local.dist[b], 0);
-  const remaining = local.selected.num_balls - assigned;
-  const putts = totalPutts();
-  document.getElementById("live-summary").innerHTML = `
-    ${statBox(putts, "Putts gesamt")}
-    ${statBox(local.dist["1"], "1-Putts")}
-    ${statBox(local.dist["2"], "2-Putts")}
-    ${statBox(local.dist["3"], "3-Putts")}
-    ${statBox(local.dist["4+"], "4+-Putts")}
-    ${remaining > 0 ? statBox(remaining, "offen") : ""}`;
-}
-
-async function saveSession() {
-  if (!store.currentUserId) { alert("Bitte zuerst einen Spieler anlegen."); return; }
-  const assigned = BUCKETS.reduce((s, b) => s + local.dist[b], 0);
-  if (assigned !== local.selected.num_balls) {
-    alert(`Bitte alle ${local.selected.num_balls} Bälle vergeben (aktuell: ${assigned}).`);
+function step(bucket, d) {
+  const next = local.dist[bucket] + d;
+  if (next < 0) return;
+  if (d > 0 && assigned() >= local.selected.num_balls) {
+    haptic("warning");
     return;
   }
-  // Reconstruct per-ball array for API (order irrelevant for stats)
+  local.dist[bucket] = next;
+  if (d > 0) local.lastBucket = bucket;
+  haptic("light");
+  renderGrid();
+}
+
+function renderProgress() {
+  const row = $("putten-progress");
+  if (!local.selected) { row.innerHTML = ""; updateSaveBtn(); return; }
+
+  const total = assigned();
+  const num = local.selected.num_balls;
+  const pct = num > 0 ? Math.min(100, Math.round((total / num) * 100)) : 0;
+  const complete = total === num;
+
+  row.innerHTML = `
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+    <span class="progress-label${complete ? " progress-label--complete" : ""}">${total} / ${num} Bälle</span>
+    ${complete ? `<span class="progress-checkmark">✓</span>` : ""}`;
+
+  updateSaveBtn();
+}
+
+function updateSaveBtn() {
+  const btn = $("putten-save");
+  const ready = local.selected && assigned() === local.selected.num_balls;
+  btn.disabled = !ready;
+}
+
+// ----------------------------------------------------------- exercise picker
+function openPicker() {
+  const rows = local.exercises.map((ex) => {
+    const current = local.selected && ex.id === local.selected.id;
+    const canDelete = !ex.is_default;
+    return `
+      <div class="sheet-row" data-id="${ex.id}">
+        <span class="sheet-row__label">${escapeHtml(ex.name)} · ${ex.num_balls} Bälle</span>
+        ${current ? '<span class="sheet-row__check">✓</span>' : ""}
+        ${canDelete ? `<button class="sheet-row__del" data-del="${ex.id}" aria-label="Übung löschen">✕</button>` : ""}
+      </div>`;
+  }).join("");
+
+  openSheet({
+    title: "Übung",
+    bodyHtml: `${rows}<button class="sheet-add" data-add>+ Neue Übung</button>`,
+  });
+
+  const body = $("sheet-body");
+
+  body.querySelectorAll(".sheet-row").forEach((row) => {
+    row.onclick = (e) => {
+      if (e.target.closest("[data-del]")) return;
+      const id = parseInt(row.dataset.id, 10);
+      const ex = local.exercises.find((x) => x.id === id);
+      if (!ex) return;
+      haptic("light");
+      closeSheet();
+      selectExercise(ex);
+    };
+  });
+
+  body.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.del, 10);
+      const ex = local.exercises.find((x) => x.id === id);
+      if (!ex) return;
+      if (!confirm(`Übung „${ex.name}“ löschen?`)) return;
+      await api.send(`/api/exercises/${id}`, "DELETE");
+      if (local.selected && local.selected.id === id) local.selected = null;
+      await loadExercises();
+      loadStats();
+      openPicker(); // refresh the sheet contents
+    };
+  });
+
+  const add = body.querySelector("[data-add]");
+  if (add) add.onclick = () => createExercise();
+}
+
+async function createExercise() {
+  const name = prompt("Name der Übung:");
+  if (!name || !name.trim()) return;
+  const distRaw = prompt("Distanz in Metern:", "2");
+  if (distRaw === null) return;
+  const ballsRaw = prompt("Anzahl Bälle:", "10");
+  if (ballsRaw === null) return;
+
+  const distance_cm = Math.round((parseFloat(distRaw) || 0) * 100);
+  const num_balls = parseInt(ballsRaw, 10) || 10;
+
+  const ex = await api.send("/api/exercises", "POST", {
+    category: "putting",
+    name: name.trim(),
+    distance_cm,
+    num_balls,
+  });
+  await loadExercises();
+  selectExercise(ex);
+  closeSheet();
+}
+
+// ----------------------------------------------------------- save
+async function saveSession() {
+  if (!local.selected) return;
+  if (!store.currentUserId) {
+    alert("Bitte zuerst einen Spieler anlegen.");
+    return;
+  }
+  if (assigned() !== local.selected.num_balls) {
+    haptic("warning");
+    return;
+  }
+
+  // Reconstruct per-ball results array (4+ -> value 4).
   const results = [];
   BUCKETS.forEach((b) => {
-    const v = b === "4+" ? 4 : parseInt(b);
+    const v = b === "4+" ? 4 : parseInt(b, 10);
     for (let i = 0; i < local.dist[b]; i++) results.push(v);
   });
-  const note = document.getElementById("session-note").value.trim();
+
   await api.send("/api/sessions", "POST", {
     user_id: store.currentUserId,
     exercise_id: local.selected.id,
     results,
-    note: note || null,
+    note: null,
   });
-  document.getElementById("session-note").value = "";
-  local.dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
-  renderRecorder();
+
+  haptic("success");
+  resetDist();
+  renderGrid();
   loadStats();
 }
 
 // ----------------------------------------------------------- stats
 async function loadStats() {
-  if (!local.selected || !store.currentUserId) return;
+  if (typeof window.__renderPuttenStats === "function") {
+    await window.__renderPuttenStats();
+  }
+}
+
+async function renderStats() {
+  const cards = $("putten-stats-cards");
+  const chart = $("putten-chart");
+  const hist = $("putten-history");
+
+  if (!local.selected || !store.currentUserId) {
+    cards.innerHTML = "";
+    chart.innerHTML = "";
+    hist.innerHTML = `<div class="empty">Noch keine Sessions — leg los! 🏌️</div>`;
+    return;
+  }
+
   const u = store.currentUserId;
   const ex = local.selected.id;
   const stats = await api.get(`/api/exercises/${ex}/stats?user_id=${u}`);
   const sessions = await api.get(`/api/sessions?exercise_id=${ex}&user_id=${u}`);
-  renderStats(stats, sessions);
-}
 
-function renderStats(stats, sessions) {
-  const summary = document.getElementById("stats-summary");
-  if (stats.sessions === 0) {
-    summary.innerHTML = `<p class="empty">Noch keine Sessions — leg los! 🏌️</p>`;
-  } else {
-    summary.innerHTML = `
-      ${statBox(stats.sessions, "Sessions")}
-      ${statBox(stats.best_total_putts, "Bestwert (Putts)")}
-      ${statBox(stats.avg_total_putts, "Ø Putts")}
-      ${statBox(stats.last_total_putts, "Letzte")}
-      ${statBox(stats.avg_one_putt_pct + "%", "Ø 1-Putt-Quote")}`;
-  }
+  // cards
+  cards.innerHTML = [
+    statCard(stats.sessions, "Sessions"),
+    statCard(stats.best_total_putts, "Bestwert (Putts)", true),
+    statCard(stats.avg_total_putts, "Ø Putts pro Session"),
+    statCard(stats.avg_one_putt_pct + " %", "1-Putt-Quote", true),
+  ].join("");
 
-  // Trend: total putts per session over time (history is oldest -> newest)
-  const chart = document.getElementById("putt-chart");
-  const points = stats.history.map((h) => ({
+  // chart (history oldest -> newest)
+  const points = (stats.history || []).map((h) => ({
     label: chartLabel(h.played_at),
     value: h.total_putts,
   }));
   chart.innerHTML = points.length >= 2
-    ? lineChart(points)
-    : `<p class="empty">Mehr Daten für einen Trend nötig.</p>`;
+    ? `<div class="chart-card">${lineChart(points)}</div>`
+    : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 
-  const hist = document.getElementById("history");
-  hist.innerHTML = sessions
-    .map((s) => {
-      const d = s.stats.distribution;
-      const when = new Date(s.played_at + "Z").toLocaleString("de-DE", {
-        dateStyle: "medium", timeStyle: "short",
-      });
-      return `<div class="history-row">
-        <span class="when">${when}${s.note ? " · " + escapeHtml(s.note) : ""}</span>
-        <span class="dist">1:${d["1"]} 2:${d["2"]} 3:${d["3"]} 4+:${d["4+"]}</span>
-        <span class="total">${s.stats.total_putts} Putts</span>
-      </div>`;
-    })
+  // history
+  if (!sessions.length) {
+    hist.innerHTML = `<div class="empty">Noch keine Sessions — leg los! 🏌️</div>`;
+    return;
+  }
+  hist.innerHTML = `<div class="history-card">${sessions.map(historyRow).join("")}</div>`;
+}
+
+function statCard(num, label, highlight = false) {
+  return `<div class="stat-card${highlight ? " highlight" : ""}"><div class="stat-card__number">${num}</div><div class="stat-card__label">${label}</div></div>`;
+}
+
+function historyRow(s) {
+  const d = s.stats.distribution;
+  const chips = BUCKETS
+    .map((b) => `<span class="dist-chip">${d[b]} <span class="chip-label">${b === "4+" ? "4+" : b + "×"}</span></span>`)
     .join("");
+  return `
+    <div class="history-row">
+      <div class="history-row__date">${shortDate(s.played_at)}</div>
+      <div class="history-row__dist">${chips}</div>
+      <div class="history-row__total">${s.stats.total_putts} <span>Putts</span></div>
+    </div>`;
 }
 
 // ----------------------------------------------------------- init
 export function initPutting() {
-  document.getElementById("save-session").onclick = saveSession;
-  document.getElementById("add-exercise-btn").onclick = () => openForm(null);
-  document.getElementById("cancel-exercise").onclick = closeForm;
+  $("putten-picker").onclick = () => openPicker();
+  $("putten-save").onclick = () => saveSession();
 
-  document.getElementById("exercise-form").onsubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      name: document.getElementById("ex-name").value.trim(),
-      distance_cm: Math.round(parseFloat(document.getElementById("ex-distance").value) * 100),
-      num_balls: parseInt(document.getElementById("ex-balls").value, 10),
-    };
-    if (local.editingId) {
-      const updated = await api.send(`/api/exercises/${local.editingId}`, "PATCH", payload);
-      if (local.selected?.id === updated.id) {
-        local.selected = updated;
-        local.results = new Array(updated.num_balls).fill(1);
-        renderRecorder();
-      }
-    } else {
-      await api.send("/api/exercises", "POST", { category: "putting", ...payload });
-    }
-    closeForm();
-    await loadExercises();
-  };
+  // main.js drives stats navigation; we just (re)render into the containers.
+  window.__renderPuttenStats = () => renderStats();
 
-  onUserChange(loadStats);
+  onUserChange(() => loadStats());
+
   loadExercises();
 }

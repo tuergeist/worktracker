@@ -1,236 +1,328 @@
 "use strict";
 
-import { api, store, statBox, escapeHtml, show, hide, onUserChange } from "./store.js";
+import { api, store, escapeHtml, onUserChange } from "./store.js";
 import { lineChart } from "./chart.js";
+import { haptic } from "./ui.js";
+
+// Typical amateur carry centres (metres) keyed by club abbreviation.
+const CLUB_CENTERS = {
+  Dr: 200, "3W": 180, "5W": 165,
+  "2i": 185, "3i": 175, "4i": 165, "5i": 150, "6i": 140,
+  "7i": 130, "8i": 120, "9i": 110,
+  PW: 95, GW: 80, SW: 65, LW: 50,
+};
+const FALLBACK_CENTER = 120;
+
+const DIRECTIONS = [
+  { key: "links", label: "← Links", drift: -1 },
+  { key: "gerade", label: "Gerade", drift: 0 },
+  { key: "rechts", label: "Rechts →", drift: 1 },
+];
 
 const local = {
   clubs: [],
   tags: [],
-  selected: null,
-  editingId: null,
+  club: null,           // selected club object
+  stats: null,          // last loaded stats for selected club
+  buckets: [],          // [{label, mid}]
+  bucketIdx: null,      // selected bucket index
+  override: null,       // exact carry override in metres
   pickedTags: new Set(),
+  direction: "gerade",
 };
 
-// --------------------------------------------------------------- clubs
+// ----------------------------------------------------------- helpers
+function round5(n) {
+  return Math.round(n / 5) * 5;
+}
+
+function centerFor(club) {
+  return CLUB_CENTERS[club.abbr] ?? FALLBACK_CENTER;
+}
+
+// Build 5 buckets of 30 m width centred on the club's typical carry centre.
+function buildBuckets(club) {
+  const c = centerFor(club);
+  const e1 = round5(c - 45);
+  const e2 = round5(c - 15);
+  const e3 = round5(c + 15);
+  const e4 = round5(c + 45);
+  return [
+    { label: `< ${e1}`, mid: round5(c - 60) },
+    { label: `${e1} – ${e2}`, mid: round5(c - 30) },
+    { label: `${e2} – ${e3}`, mid: round5(c) },
+    { label: `${e3} – ${e4}`, mid: round5(c + 30) },
+    { label: `> ${e4}`, mid: round5(c + 60) },
+  ];
+}
+
+// Current carry: override wins, else selected bucket midpoint, else null.
+function currentCarry() {
+  if (local.override != null) return local.override;
+  if (local.bucketIdx != null) return local.buckets[local.bucketIdx].mid;
+  return null;
+}
+
+function tendencyLabel(avgDrift) {
+  if (avgDrift < -0.1) return "links";
+  if (avgDrift > 0.1) return "rechts";
+  return "gerade";
+}
+
+function driftLabel(driftM) {
+  if (driftM < 0) return "links";
+  if (driftM > 0) return "rechts";
+  return "gerade";
+}
+
+// ----------------------------------------------------------- clubs
 async function loadClubs() {
   local.clubs = await api.get("/api/clubs");
+  if (local.clubs.length && !local.club) {
+    local.club = local.clubs[0];
+  }
   renderClubs();
 }
 
 function renderClubs() {
-  const list = document.getElementById("club-list");
-  list.innerHTML = "";
+  const row = document.getElementById("range-club-row");
+  row.innerHTML = "";
   local.clubs.forEach((c) => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (local.selected?.id === c.id ? " active" : "");
-    chip.onclick = () => selectClub(c);
-
-    const label = document.createElement("span");
-    label.textContent = `${c.abbr} · ${c.name}`;
-    chip.appendChild(label);
-
-    const edit = document.createElement("button");
-    edit.className = "icon";
-    edit.textContent = "✎";
-    edit.title = "Schläger bearbeiten";
-    edit.onclick = (e) => { e.stopPropagation(); openForm(c); };
-    chip.appendChild(edit);
-
-    if (!c.is_default) {
-      const del = document.createElement("button");
-      del.className = "icon";
-      del.textContent = "×";
-      del.title = "Schläger löschen";
-      del.onclick = async (e) => {
-        e.stopPropagation();
-        if (!confirm(`Schläger „${c.name}" löschen?`)) return;
-        await api.send(`/api/clubs/${c.id}`, "DELETE");
-        if (local.selected?.id === c.id) {
-          local.selected = null;
-          hide("shot-panel");
-          hide("club-stats-panel");
-        }
-        await loadClubs();
-      };
-      chip.appendChild(del);
-    }
-    list.appendChild(chip);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "club-chip" + (local.club?.id === c.id ? " club-chip--selected" : "");
+    const badge = document.createElement("span");
+    badge.className = "club-chip__badge";
+    badge.textContent = c.abbr;
+    btn.appendChild(badge);
+    btn.appendChild(document.createTextNode(" " + c.name));
+    btn.onclick = () => selectClub(c);
+    row.appendChild(btn);
   });
 }
 
 function selectClub(c) {
-  local.selected = c;
+  local.club = c;
   renderClubs();
-  document.getElementById("shot-title").textContent = `Schlag erfassen — ${c.name}`;
-  resetShotForm();
+  resetShot();    // rebuilds buckets/exact/tags/direction for the new club
   loadStats();
-  show("shot-panel");
-  show("club-stats-panel");
+  haptic("light");
 }
 
-// --------------------------------------------------------- create/edit
-function openForm(c = null) {
-  local.editingId = c ? c.id : null;
-  document.getElementById("club-name").value = c ? c.name : "";
-  document.getElementById("club-abbr").value = c ? c.abbr : "";
-  document.getElementById("club-order").value = c ? c.sort_order : 100;
-  document.getElementById("club-submit").textContent = c ? "Speichern" : "Anlegen";
-  document.getElementById("club-form").hidden = false;
-}
-
-function closeForm() {
-  local.editingId = null;
-  document.getElementById("club-form").reset();
-  document.getElementById("club-order").value = 100;
-  document.getElementById("club-form").hidden = true;
-}
-
-// ----------------------------------------------------------- shot tags
-function renderTagToggles() {
-  const wrap = document.getElementById("shot-tags");
+// ----------------------------------------------------------- buckets
+function renderBuckets() {
+  local.buckets = local.club ? buildBuckets(local.club) : [];
+  const wrap = document.getElementById("range-buckets");
   wrap.innerHTML = "";
-  local.tags.forEach((t) => {
+  local.buckets.forEach((b, i) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "tag-toggle" + (local.pickedTags.has(t) ? " on" : "");
-    btn.textContent = t;
+    btn.className = "bucket" + (local.bucketIdx === i ? " bucket--selected" : "");
+    btn.textContent = `${b.label} m`;
     btn.onclick = () => {
-      if (local.pickedTags.has(t)) local.pickedTags.delete(t);
-      else local.pickedTags.add(t);
-      btn.classList.toggle("on");
+      local.bucketIdx = i;
+      local.override = null; // selecting a bucket clears the override
+      renderBuckets();
+      renderExact();
+      updateSaveState();
+      haptic("light");
     };
     wrap.appendChild(btn);
   });
 }
 
-function resetShotForm() {
-  document.getElementById("shot-carry").value = "";
-  document.getElementById("shot-drift-dir").value = "0";
-  document.getElementById("shot-drift-m").value = 0;
-  document.getElementById("shot-note").value = "";
-  local.pickedTags.clear();
-  renderTagToggles();
+// ----------------------------------------------------------- exact override
+function renderExact() {
+  const span = document.getElementById("range-exact-value");
+  const carry = currentCarry();
+  span.textContent = carry != null ? `${carry} m` : "–";
 }
 
-function driftValue() {
-  const dir = parseInt(document.getElementById("shot-drift-dir").value, 10);
-  const m = parseFloat(document.getElementById("shot-drift-m").value) || 0;
-  return dir * Math.abs(m); // -left, +right, 0 straight
+function promptExact() {
+  const raw = prompt("Genaue Carry-Distanz in Metern:");
+  if (raw == null) return;
+  const v = parseInt(raw, 10);
+  if (isNaN(v) || v < 0) { alert("Bitte eine gültige Zahl angeben."); return; }
+  local.override = v;
+  local.bucketIdx = null; // override wins, clear bucket selection
+  renderBuckets();
+  renderExact();
+  updateSaveState();
+  haptic("light");
+}
+
+// ----------------------------------------------------------- tags
+function renderTags() {
+  const wrap = document.getElementById("range-tags");
+  wrap.innerHTML = "";
+  local.tags.forEach((t) => {
+    const pill = document.createElement("span");
+    pill.className = "tag-pill" + (local.pickedTags.has(t) ? " active" : "");
+    pill.textContent = t;
+    pill.onclick = () => {
+      if (local.pickedTags.has(t)) local.pickedTags.delete(t);
+      else local.pickedTags.add(t);
+      pill.classList.toggle("active");
+      haptic("light");
+    };
+    wrap.appendChild(pill);
+  });
+}
+
+// ----------------------------------------------------------- direction
+function renderDirection() {
+  const wrap = document.getElementById("range-direction");
+  wrap.innerHTML = "";
+  DIRECTIONS.forEach((d) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "dir-btn" + (local.direction === d.key ? " dir-btn--selected" : "");
+    btn.textContent = d.label;
+    btn.onclick = () => {
+      local.direction = d.key;
+      renderDirection();
+      haptic("light");
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+// ----------------------------------------------------------- save
+function updateSaveState() {
+  const btn = document.getElementById("range-save");
+  const ready = !!local.club && currentCarry() != null;
+  btn.disabled = !ready;
+}
+
+function resetShot() {
+  local.bucketIdx = null;
+  local.override = null;
+  local.pickedTags.clear();
+  local.direction = "gerade";
+  renderBuckets();
+  renderExact();
+  renderTags();
+  renderDirection();
+  updateSaveState();
 }
 
 async function saveShot() {
   if (!store.currentUserId) { alert("Bitte zuerst einen Spieler anlegen."); return; }
-  const carry = parseFloat(document.getElementById("shot-carry").value);
-  if (isNaN(carry) || carry < 0) { alert("Bitte eine gültige Carry-Distanz angeben."); return; }
-  const note = document.getElementById("shot-note").value.trim();
+  if (!local.club) return;
+  const carry = currentCarry();
+  if (carry == null) return;
+
+  const dir = DIRECTIONS.find((d) => d.key === local.direction) || DIRECTIONS[1];
   await api.send("/api/shots", "POST", {
     user_id: store.currentUserId,
-    club_id: local.selected.id,
+    club_id: local.club.id,
     carry_m: carry,
-    drift_m: driftValue(),
+    drift_m: dir.drift,
     tags: [...local.pickedTags],
-    note: note || null,
+    note: null,
   });
-  resetShotForm();
-  document.getElementById("shot-carry").focus();
+
+  haptic("success");
+  resetShot();
   loadStats();
 }
 
 // ----------------------------------------------------------- stats
-function driftLabel(m) {
-  if (Math.abs(m) < 0.5) return "gerade";
-  return `${Math.abs(m)} m ${m < 0 ? "links" : "rechts"}`;
-}
-
 async function loadStats() {
-  if (!local.selected || !store.currentUserId) return;
-  const u = store.currentUserId;
-  const c = local.selected.id;
-  const stats = await api.get(`/api/clubs/${c}/stats?user_id=${u}`);
-  renderStats(stats);
+  if (!local.club || !store.currentUserId) return;
+  const stats = await api.get(
+    `/api/clubs/${local.club.id}/stats?user_id=${store.currentUserId}`
+  );
+  local.stats = stats;
+  renderSummary();
 }
 
-function renderStats(stats) {
-  const summary = document.getElementById("club-stats-summary");
-  const tagWrap = document.getElementById("club-tag-counts");
-  const chart = document.getElementById("club-chart");
-  const hist = document.getElementById("shot-history");
+// Inline summary on the record view for the selected club.
+function renderSummary() {
+  const el = document.getElementById("range-summary");
+  const s = local.stats;
+  if (!s || s.shots === 0) {
+    el.textContent = "";
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  el.textContent = `${s.shots} Schläge · Ø ${s.avg_carry} m`;
+}
 
-  if (stats.shots === 0) {
-    summary.innerHTML = `<p class="empty">Noch keine Schläge — los geht's! 🏌️</p>`;
-    tagWrap.innerHTML = "";
+function statCard(num, label, highlight) {
+  return `<div class="stat-card${highlight ? " highlight" : ""}">
+    <div class="stat-card__number">${num}</div>
+    <div class="stat-card__label">${label}</div>
+  </div>`;
+}
+
+function renderStats() {
+  const cards = document.getElementById("range-stats-cards");
+  const chart = document.getElementById("range-chart");
+  const hist = document.getElementById("range-history");
+  const s = local.stats;
+
+  if (!s || s.shots === 0) {
+    cards.innerHTML = "";
     chart.innerHTML = "";
-    hist.innerHTML = "";
+    hist.innerHTML = `<div class="empty">Noch keine Schläge — los geht's! 🏌️</div>`;
     return;
   }
 
-  summary.innerHTML = `
-    ${statBox(stats.shots, "Schläge")}
-    ${statBox(stats.avg_carry + " m", "Ø Carry")}
-    ${statBox(stats.max_carry + " m", "Max Carry")}
-    ${statBox(stats.min_carry + " m", "Min Carry")}
-    ${statBox("± " + stats.avg_abs_drift + " m", "Ø Streuung")}
-    ${statBox(driftLabel(stats.avg_drift), "Tendenz")}`;
+  cards.innerHTML = [
+    statCard(s.shots, "Schläge", false),
+    statCard(s.avg_carry + " m", "Ø Carry", true),
+    statCard(s.max_carry + " m", "Max Carry", false),
+    statCard(tendencyLabel(s.avg_drift), "Tendenz", false),
+  ].join("");
 
-  const tags = Object.entries(stats.tag_counts).sort((a, b) => b[1] - a[1]);
-  tagWrap.innerHTML = tags.length
-    ? tags.map(([t, n]) => `<span class="tag-count">${escapeHtml(t)} <b>${n}</b></span>`).join("")
-    : "";
-
-  // Trend: average carry per day (carry_trend is ascending by date)
-  const points = (stats.carry_trend || []).map((d) => ({
+  const points = (s.carry_trend || []).map((d) => ({
     label: d.date.slice(5).split("-").reverse().join("."), // YYYY-MM-DD -> DD.MM
     value: d.avg_carry,
   }));
   chart.innerHTML = points.length >= 2
-    ? lineChart(points, { unit: "m" })
-    : `<p class="empty">Mehr Daten für einen Trend nötig.</p>`;
+    ? `<div class="chart-card">${lineChart(points, { unit: "m" })}</div>`
+    : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 
-  hist.innerHTML = stats.history
-    .map((s) => {
-      const when = new Date(s.played_at + "Z").toLocaleString("de-DE", {
-        dateStyle: "short", timeStyle: "short",
-      });
-      const tags = s.tags.length ? " · " + s.tags.map(escapeHtml).join(", ") : "";
-      const note = s.note ? " · " + escapeHtml(s.note) : "";
-      return `<div class="history-row">
-        <span class="when">${when}</span>
-        <span class="dist">${driftLabel(s.drift_m)}${tags}${note}</span>
-        <span class="total">${s.carry_m} m</span>
-      </div>`;
-    })
-    .join("");
+  const rows = (s.history || []).map((shot) => {
+    const when = new Date(shot.played_at + "Z").toLocaleString("de-DE", {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    });
+    const tags = shot.tags && shot.tags.length
+      ? " · " + shot.tags.map(escapeHtml).join(", ")
+      : "";
+    return `<div class="history-row">
+      <div class="history-row__date">${when}</div>
+      <div class="history-row__dist">${driftLabel(shot.drift_m)}${tags}</div>
+      <div class="history-row__total">${shot.carry_m} <span>m</span></div>
+    </div>`;
+  }).join("");
+  hist.innerHTML = `<div class="history-card">${rows}</div>`;
+}
+
+// Re-fetch stats for the selected club, then render the stats view.
+async function renderRangeStats() {
+  await loadStats();
+  renderStats();
 }
 
 // ----------------------------------------------------------- init
 export async function initRange() {
   local.tags = await api.get("/api/shot-tags");
-  renderTagToggles();
+  renderTags();
+  renderDirection();
 
-  document.getElementById("save-shot").onclick = saveShot;
-  document.getElementById("add-club-btn").onclick = () => openForm(null);
-  document.getElementById("cancel-club").onclick = closeForm;
+  document.getElementById("range-exact").onclick = promptExact;
+  document.getElementById("range-save").onclick = saveShot;
 
-  document.getElementById("club-form").onsubmit = async (e) => {
-    e.preventDefault();
-    const payload = {
-      name: document.getElementById("club-name").value.trim(),
-      abbr: document.getElementById("club-abbr").value.trim(),
-      sort_order: parseInt(document.getElementById("club-order").value, 10) || 100,
-    };
-    if (local.editingId) {
-      const updated = await api.send(`/api/clubs/${local.editingId}`, "PATCH", payload);
-      if (local.selected?.id === updated.id) {
-        local.selected = updated;
-        document.getElementById("shot-title").textContent = `Schlag erfassen — ${updated.name}`;
-      }
-    } else {
-      await api.send("/api/clubs", "POST", payload);
-    }
-    closeForm();
-    await loadClubs();
-  };
+  window.__renderRangeStats = renderRangeStats;
 
-  onUserChange(loadStats);
-  loadClubs();
+  onUserChange(() => { loadStats(); });
+
+  await loadClubs();
+  renderBuckets();
+  renderExact();
+  updateSaveState();
+  loadStats();
 }

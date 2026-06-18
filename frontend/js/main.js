@@ -1,24 +1,70 @@
 "use strict";
 
-import { initUsers } from "./users.js";
+import { initUsers, openSettings } from "./users.js";
 import { initPutting } from "./putting.js";
 import { initRange } from "./range.js";
 
-function activateTab(name) {
-  document.querySelectorAll(".tab").forEach((t) =>
-    t.classList.toggle("active", t.dataset.tab === name)
-  );
-  document.getElementById("view-putting").hidden = name !== "putting";
-  document.getElementById("view-range").hidden = name !== "range";
+const LS_TAB = "wt.tab";
+
+// View ids per tab. Index 0 = record view, index 1 = stats view.
+const VIEWS = {
+  putten: ["view-putten-record", "view-putten-stats"],
+  range:  ["view-range-record", "view-range-stats"],
+};
+
+function setView(id) {
+  document.querySelectorAll("#main .view").forEach((v) => {
+    v.hidden = v.id !== id;
+  });
 }
 
-document.querySelectorAll(".tab").forEach((t) => {
-  t.onclick = () => activateTab(t.dataset.tab);
-});
+// Switch tabs: always land on the record view of the chosen tab.
+function activateTab(name) {
+  if (!VIEWS[name]) name = "putten";
+  document.querySelectorAll(".tab-item").forEach((t) =>
+    t.classList.toggle("tab-item--active", t.dataset.tab === name)
+  );
+  setView(VIEWS[name][0]);
+  localStorage.setItem(LS_TAB, name);
+}
+
+function wireTabs() {
+  document.querySelectorAll(".tab-item").forEach((t) => {
+    t.onclick = () => activateTab(t.dataset.tab);
+  });
+}
+
+// Stats navigation: toggle record <-> stats views and let the topic module
+// render its data via an optional global callback it registers.
+function wireStatsNav() {
+  document.getElementById("putten-stats-link").onclick = () => {
+    setView("view-putten-stats");
+    window.__renderPuttenStats?.();
+  };
+  document.getElementById("putten-stats-back").onclick = () =>
+    setView("view-putten-record");
+
+  document.getElementById("range-stats-link").onclick = () => {
+    setView("view-range-stats");
+    window.__renderRangeStats?.();
+  };
+  document.getElementById("range-stats-back").onclick = () =>
+    setView("view-range-record");
+}
+
+function wireSettings() {
+  document.getElementById("settings-btn").onclick = () => openSettings();
+}
 
 (async function init() {
-  await initUsers();   // load players first; views depend on current user
+  wireTabs();
+  wireStatsNav();
+  wireSettings();
+
+  await initUsers();   // load players first; topic views depend on current user
   initPutting();
   await initRange();
-  activateTab("putting");
+
+  const last = localStorage.getItem(LS_TAB);
+  activateTab(last === "range" ? "range" : "putten");
 })();

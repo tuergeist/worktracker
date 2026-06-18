@@ -2,126 +2,134 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2e7d32" />
   <title>Golf Training</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <h1>⛳ Golf Training</h1>
-      <p class="subtitle">Putten &amp; Range</p>
+
+<div id="app">
+
+  <!-- ── App header ───────────────────────────────────────── -->
+  <header class="app-header">
+    <div class="brand">
+      <svg class="brand__logo" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6 2.75a1.05 1.05 0 0 1 1.05 1.05V21a1.05 1.05 0 0 1-2.1 0V3.8A1.05 1.05 0 0 1 6 2.75Z" fill="#1b5e20"/>
+        <path d="M7.6 4.1l10.2 2.94a.7.7 0 0 1 .02 1.34L7.6 11.6V4.1Z" fill="#2e7d32"/>
+      </svg>
+      <span class="brand__title">Golf Training</span>
     </div>
-    <div class="user-bar">
-      <label for="user-select">Spieler</label>
-      <select id="user-select"></select>
-      <button id="add-user-btn" class="ghost small">+ Spieler</button>
-      <button id="del-user-btn" class="ghost small" title="Spieler löschen">×</button>
-    </div>
+
+    <button id="settings-btn" class="settings-btn" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 15.5A3.5 3.5 0 0 1 8.5 12 3.5 3.5 0 0 1 12 8.5a3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 1-3.5 3.5m7.43-2.92c.04-.34.07-.69.07-1.08 0-.39-.03-.74-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.81c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.81-1.86-1.08l-.42-2.92C14.5 2.18 14.25 2 14 2h-4c-.25 0-.5.18-.54.42l-.42 2.92c-.68.27-1.29.64-1.86 1.08L4.44 5.32c-.25-.08-.54 0-.67.25L1.57 9.38c-.14.24-.08.54.13.7l2.32 1.82C4.03 12.26 4 12.61 4 13c0 .39.03.74.07 1.08L1.7 15.9c-.21.16-.27.46-.13.7l2.2 3.81c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.81 1.86 1.08l.42 2.92c.04.24.29.42.54.42h4c.25 0 .5-.18.54-.42l.42-2.92c.68-.27 1.29-.64 1.86-1.08l2.74 1.1c.25.08.54 0 .67-.25l2.2-3.81c.14-.24.08-.54-.13-.7l-2.32-1.82z"/>
+      </svg>
+    </button>
   </header>
 
-  <nav class="tabs">
-    <button class="tab active" data-tab="putting">🥅 Putten</button>
-    <button class="tab" data-tab="range">🎯 Range</button>
-  </nav>
+  <!-- ── Views ────────────────────────────────────────────── -->
+  <main id="main">
 
-  <main>
-    <!-- ============================ PUTTING ============================ -->
-    <div id="view-putting">
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Übung</h2>
-          <button id="add-exercise-btn" class="ghost">+ Neue Übung</button>
+    <!-- ═════ View: Putten Aufnahme ═════ -->
+    <section id="view-putten-record" class="view">
+      <div class="picker-strip">
+        <button id="putten-picker" class="picker-strip__chip" aria-label="Übung wechseln">
+          <span id="putten-picker-label">Putten</span>
+          <span class="picker-strip__caret" aria-hidden="true">▾</span>
+        </button>
+      </div>
+
+      <div class="record-body">
+        <div id="putten-grid" class="counter-grid"></div>
+        <div id="putten-progress" class="progress-row"></div>
+      </div>
+
+      <div class="footer-bar">
+        <button id="putten-save" class="btn-primary">Speichern</button>
+        <button id="putten-stats-link" class="link-secondary">Statistik →</button>
+      </div>
+    </section>
+
+    <!-- ═════ View: Putten Statistik ═════ -->
+    <section id="view-putten-stats" class="view view--stats" hidden>
+      <div class="sub-header">
+        <button id="putten-stats-back" class="header__back">← Zurück</button>
+        <div class="sub-header__title">Statistik</div>
+        <div class="sub-header__right"></div>
+      </div>
+      <div class="stats-content">
+        <div id="putten-stats-cards" class="stat-cards"></div>
+        <div id="putten-chart"></div>
+        <h3 class="section-heading">Letzte Sessions</h3>
+        <div id="putten-history"></div>
+      </div>
+    </section>
+
+    <!-- ═════ View: Range Aufnahme ═════ -->
+    <section id="view-range-record" class="view" hidden>
+      <div class="club-strip">
+        <div id="range-club-row" class="club-row"></div>
+      </div>
+
+      <div class="record-body record-body--range">
+        <div id="range-summary" class="range-summary"></div>
+        <div id="range-buckets" class="bucket-list"></div>
+        <div class="exact-override">oder genau:
+          <button id="range-exact" class="exact-chip">
+            <span id="range-exact-value">–</span>
+            <span class="exact-chip__pen" aria-hidden="true">✎</span>
+          </button>
         </div>
-        <div id="exercise-list" class="chip-list"></div>
+        <div id="range-tags" class="tag-row"></div>
+        <div id="range-direction" class="direction-toggle"></div>
+      </div>
 
-        <form id="exercise-form" class="add-form" hidden>
-          <input id="ex-name" type="text" placeholder="Name (z.B. Putten 4m)" required />
-          <input id="ex-distance" type="number" min="0.1" step="0.1" placeholder="Distanz (m)" required />
-          <input id="ex-balls" type="number" min="1" step="1" value="10" placeholder="Bälle" required />
-          <button type="submit" id="ex-submit">Anlegen</button>
-          <button type="button" id="cancel-exercise" class="ghost">Abbrechen</button>
-        </form>
-      </section>
+      <div class="footer-bar">
+        <button id="range-save" class="btn-primary">Speichern</button>
+        <button id="range-stats-link" class="link-secondary">Statistik →</button>
+      </div>
+    </section>
 
-      <section id="record-panel" class="panel" hidden>
-        <div class="panel-head">
-          <h2 id="record-title">Session erfassen</h2>
-        </div>
-        <p class="hint">Wie viele Bälle pro Putt-Anzahl?</p>
-        <div id="balls" class="balls"></div>
-        <div class="summary" id="live-summary"></div>
-        <div class="record-actions">
-          <input id="session-note" type="text" placeholder="Notiz (optional)" />
-          <button id="save-session" class="primary">Session speichern</button>
-        </div>
-      </section>
+    <!-- ═════ View: Range Statistik ═════ -->
+    <section id="view-range-stats" class="view view--stats" hidden>
+      <div class="sub-header">
+        <button id="range-stats-back" class="header__back">← Zurück</button>
+        <div class="sub-header__title">Statistik</div>
+        <div class="sub-header__right"></div>
+      </div>
+      <div class="stats-content">
+        <div id="range-stats-cards" class="stat-cards"></div>
+        <div id="range-chart"></div>
+        <h3 class="section-heading">Letzte Schläge</h3>
+        <div id="range-history"></div>
+      </div>
+    </section>
 
-      <section id="stats-panel" class="panel" hidden>
-        <h2>Statistik</h2>
-        <div id="stats-summary" class="stats-summary"></div>
-        <div id="putt-chart" class="chart"></div>
-        <h3>Verlauf</h3>
-        <div id="history"></div>
-      </section>
-    </div>
-
-    <!-- ============================= RANGE ============================= -->
-    <div id="view-range" hidden>
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Schläger</h2>
-          <button id="add-club-btn" class="ghost">+ Schläger</button>
-        </div>
-        <div id="club-list" class="chip-list"></div>
-
-        <form id="club-form" class="add-form" hidden>
-          <input id="club-name" type="text" placeholder="Name (z.B. Eisen 4)" required />
-          <input id="club-abbr" type="text" placeholder="Kürzel (z.B. 4i)" required />
-          <input id="club-order" type="number" step="1" placeholder="Reihenfolge" value="100" />
-          <button type="submit" id="club-submit">Anlegen</button>
-          <button type="button" id="cancel-club" class="ghost">Abbrechen</button>
-        </form>
-      </section>
-
-      <section id="shot-panel" class="panel" hidden>
-        <div class="panel-head">
-          <h2 id="shot-title">Schlag erfassen</h2>
-        </div>
-        <div class="shot-form">
-          <label>Carry (m)
-            <input id="shot-carry" type="number" min="0" step="1" placeholder="z.B. 145" />
-          </label>
-          <label>Drift
-            <select id="shot-drift-dir">
-              <option value="0">gerade</option>
-              <option value="-1">links</option>
-              <option value="1">rechts</option>
-            </select>
-          </label>
-          <label>Drift (m)
-            <input id="shot-drift-m" type="number" min="0" step="1" value="0" placeholder="m" />
-          </label>
-        </div>
-        <p class="hint">Tags (z.B. Fehler oder sauber getroffen):</p>
-        <div id="shot-tags" class="tag-toggles"></div>
-        <div class="record-actions">
-          <input id="shot-note" type="text" placeholder="Bemerkung (optional)" />
-          <button id="save-shot" class="primary">Schlag speichern</button>
-        </div>
-      </section>
-
-      <section id="club-stats-panel" class="panel" hidden>
-        <h2>Statistik</h2>
-        <div id="club-stats-summary" class="stats-summary"></div>
-        <div id="club-tag-counts" class="tag-counts"></div>
-        <div id="club-chart" class="chart"></div>
-        <h3>Letzte Schläge</h3>
-        <div id="shot-history"></div>
-      </section>
-    </div>
   </main>
 
-  <script type="module" src="/js/main.js"></script>
+  <!-- ── Bottom tab bar ───────────────────────────────────── -->
+  <nav class="tab-bar">
+    <button class="tab-item tab-item--active" data-tab="putten">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span>Putten</span>
+    </button>
+    <button class="tab-item" data-tab="range">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l9 9-9 9"/></svg>
+      <span>Range</span>
+    </button>
+  </nav>
+
+</div><!-- /#app -->
+
+<!-- ── Generic bottom sheet ───────────────────────────────── -->
+<div id="sheet-backdrop" class="sheet-backdrop" hidden></div>
+<div id="sheet" class="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet__handle"></div>
+  <h2 id="sheet-title" class="sheet__title"></h2>
+  <div id="sheet-body" class="sheet__body"></div>
+</div>
+
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

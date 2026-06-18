@@ -7,10 +7,12 @@ Data model:
   exercises  — shared training catalogue (default + custom)
   sessions   — one recorded attempt of an exercise, belongs to a user
 """
+import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "worktracker.db"
+# Overridable via WT_DB so a container can point at a mounted volume.
+DB_PATH = Path(os.environ.get("WT_DB", Path(__file__).parent / "worktracker.db"))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -97,6 +99,7 @@ def get_conn() -> sqlite3.Connection:
 
 
 def init_db() -> None:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_conn() as conn:
         conn.executescript(SCHEMA)
         _migrate(conn)

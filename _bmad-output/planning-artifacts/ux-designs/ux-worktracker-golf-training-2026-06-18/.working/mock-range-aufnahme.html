@@ -271,7 +271,7 @@
       align-items: center;
       justify-content: center;
       width: 100%;
-      height: 52px;
+      height: 40px;
       border-radius: var(--r-md);
       border: 1.5px solid var(--divider);
       background: var(--card);
@@ -308,7 +308,7 @@
       background: #ffffff;
       border: 1px solid var(--divider);
       border-radius: var(--r-pill);
-      padding: 6px 12px;
+      padding: 4px 12px;
       font-size: 14px;
       font-weight: 500;
       color: var(--text-primary);
@@ -349,23 +349,26 @@
       color: #fff;
     }
 
-    /* Sauber toggle */
-    .sauber-btn {
+    /* Shot quality tag row */
+    .tag-row {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      height: 52px;
-      border-radius: var(--r-md);
-      border: 1.5px solid var(--primary);
-      background: var(--primary);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 700;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .tag-pill {
+      border: 1px solid var(--divider);
+      background: white;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      color: var(--text-primary);
       cursor: pointer;
-      letter-spacing: 0.2px;
-      box-shadow: 0 3px 10px rgba(46,125,50,0.25);
-      gap: 8px;
+    }
+    .tag-pill.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
     }
 
     /* ── Footer action bar ──────────────────────────────────── */
@@ -576,17 +579,22 @@
       </button>
     </div>
 
+    <!-- Shot quality tags -->
+    <div class="tag-row" role="group" aria-label="Schlagqualität">
+      <span class="tag-pill">fett</span>
+      <span class="tag-pill">getoppt</span>
+      <span class="tag-pill">dünn</span>
+      <span class="tag-pill active">sauber</span>
+      <span class="tag-pill">slice</span>
+      <span class="tag-pill">hook</span>
+    </div>
+
     <!-- Direction toggle -->
     <div class="direction-toggle" role="group" aria-label="Richtung">
       <button class="dir-btn" aria-pressed="false">&#8592; Links</button>
       <button class="dir-btn dir-btn--selected" aria-pressed="true">Gerade</button>
       <button class="dir-btn" aria-pressed="false">Rechts &#8594;</button>
     </div>
-
-    <!-- Sauber toggle -->
-    <button class="sauber-btn" aria-pressed="true">
-      &#10003; Sauber
-    </button>
 
   </div><!-- /recording-area -->
 

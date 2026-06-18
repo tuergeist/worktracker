@@ -17,11 +17,43 @@ const api = {
   },
 };
 
+const LS_USER = "wt.currentUserId";
+
 const state = {
+  users: [],
+  currentUserId: null,
   exercises: [],
   selected: null, // exercise object
   results: [],    // putts per ball for current recording
+  editingId: null, // exercise id being edited, or null
 };
+
+// --------------------------------------------------------------- users
+async function loadUsers() {
+  state.users = await api.get("/api/users");
+  const stored = parseInt(localStorage.getItem(LS_USER), 10);
+  const valid = state.users.some((u) => u.id === stored);
+  state.currentUserId = valid ? stored : state.users[0]?.id ?? null;
+  renderUsers();
+}
+
+function renderUsers() {
+  const sel = document.getElementById("user-select");
+  sel.innerHTML = "";
+  state.users.forEach((u) => {
+    const opt = document.createElement("option");
+    opt.value = u.id;
+    opt.textContent = u.name;
+    if (u.id === state.currentUserId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function setUser(id) {
+  state.currentUserId = id;
+  localStorage.setItem(LS_USER, String(id));
+  if (state.selected) loadStats(); // refresh stats for the new player
+}
 
 // ----------------------------------------------------------- exercises
 async function loadExercises() {
@@ -41,21 +73,31 @@ function renderExercises() {
     label.textContent = `${ex.name} · ${ex.num_balls} Bälle`;
     chip.appendChild(label);
 
+    const edit = document.createElement("button");
+    edit.className = "icon";
+    edit.textContent = "✎";
+    edit.title = "Übung bearbeiten";
+    edit.onclick = (e) => {
+      e.stopPropagation();
+      openExerciseForm(ex);
+    };
+    chip.appendChild(edit);
+
     if (!ex.is_default) {
       const del = document.createElement("button");
-      del.className = "del";
+      del.className = "icon";
       del.textContent = "×";
       del.title = "Übung löschen";
       del.onclick = async (e) => {
         e.stopPropagation();
         if (!confirm(`Übung „${ex.name}" löschen?`)) return;
         await api.send(`/api/exercises/${ex.id}`, "DELETE");
-        if (state.selected?.id === ex.id) state.selected = null;
-        await loadExercises();
-        if (!state.selected) {
+        if (state.selected?.id === ex.id) {
+          state.selected = null;
           hide("record-panel");
           hide("stats-panel");
         }
+        await loadExercises();
       };
       chip.appendChild(del);
     }
@@ -71,6 +113,23 @@ function selectExercise(ex) {
   loadStats();
   show("record-panel");
   show("stats-panel");
+}
+
+// ------------------------------------------------- exercise create/edit
+function openExerciseForm(ex = null) {
+  state.editingId = ex ? ex.id : null;
+  document.getElementById("ex-name").value = ex ? ex.name : "";
+  document.getElementById("ex-distance").value = ex ? ex.distance_m : "";
+  document.getElementById("ex-balls").value = ex ? ex.num_balls : 10;
+  document.getElementById("ex-submit").textContent = ex ? "Speichern" : "Anlegen";
+  document.getElementById("exercise-form").hidden = false;
+}
+
+function closeExerciseForm() {
+  state.editingId = null;
+  document.getElementById("exercise-form").reset();
+  document.getElementById("ex-balls").value = 10;
+  document.getElementById("exercise-form").hidden = true;
 }
 
 // ----------------------------------------------------------- recorder
@@ -127,8 +186,13 @@ function statBox(num, cap) {
 }
 
 async function saveSession() {
+  if (!state.currentUserId) {
+    alert("Bitte zuerst einen Spieler anlegen.");
+    return;
+  }
   const note = document.getElementById("session-note").value.trim();
   await api.send("/api/sessions", "POST", {
+    user_id: state.currentUserId,
     exercise_id: state.selected.id,
     results: state.results,
     note: note || null,
@@ -141,8 +205,11 @@ async function saveSession() {
 
 // ----------------------------------------------------------- stats
 async function loadStats() {
-  const stats = await api.get(`/api/exercises/${state.selected.id}/stats`);
-  const sessions = await api.get(`/api/sessions?exercise_id=${state.selected.id}`);
+  if (!state.selected || !state.currentUserId) return;
+  const u = state.currentUserId;
+  const ex = state.selected.id;
+  const stats = await api.get(`/api/exercises/${ex}/stats?user_id=${u}`);
+  const sessions = await api.get(`/api/sessions?exercise_id=${ex}&user_id=${u}`);
   renderStats(stats, sessions);
 }
 
@@ -195,28 +262,64 @@ function show(id) { document.getElementById(id).hidden = false; }
 function hide(id) { document.getElementById(id).hidden = true; }
 
 // ----------------------------------------------------------- wiring
+document.getElementById("user-select").onchange = (e) =>
+  setUser(parseInt(e.target.value, 10));
+
+document.getElementById("add-user-btn").onclick = async () => {
+  const name = prompt("Name des Spielers:");
+  if (!name || !name.trim()) return;
+  const user = await api.send("/api/users", "POST", { name: name.trim() });
+  await loadUsers();
+  setUser(user.id);
+  renderUsers();
+};
+
+document.getElementById("del-user-btn").onclick = async () => {
+  const u = state.users.find((x) => x.id === state.currentUserId);
+  if (!u) return;
+  if (state.users.length <= 1) {
+    alert("Der letzte Spieler kann nicht gelöscht werden.");
+    return;
+  }
+  if (!confirm(`Spieler „${u.name}" und alle seine Sessions löschen?`)) return;
+  await api.send(`/api/users/${u.id}`, "DELETE");
+  await loadUsers();
+  renderUsers();
+  if (state.selected) loadStats();
+};
+
 document.getElementById("save-session").onclick = saveSession;
 
-document.getElementById("add-exercise-btn").onclick = () =>
-  (document.getElementById("add-exercise-form").hidden = false);
-document.getElementById("cancel-exercise").onclick = () =>
-  (document.getElementById("add-exercise-form").hidden = true);
+document.getElementById("add-exercise-btn").onclick = () => openExerciseForm(null);
+document.getElementById("cancel-exercise").onclick = closeExerciseForm;
 
-document.getElementById("add-exercise-form").onsubmit = async (e) => {
+document.getElementById("exercise-form").onsubmit = async (e) => {
   e.preventDefault();
   const name = document.getElementById("ex-name").value.trim();
   const meters = parseFloat(document.getElementById("ex-distance").value);
   const balls = parseInt(document.getElementById("ex-balls").value, 10);
-  await api.send("/api/exercises", "POST", {
+  const payload = {
     name,
-    category: "putting",
     distance_cm: Math.round(meters * 100),
     num_balls: balls,
-  });
-  e.target.reset();
-  document.getElementById("ex-balls").value = 10;
-  e.target.hidden = true;
+  };
+  if (state.editingId) {
+    const updated = await api.send(`/api/exercises/${state.editingId}`, "PATCH", payload);
+    if (state.selected?.id === updated.id) {
+      // keep selection in sync (e.g. ball count may have changed)
+      state.selected = updated;
+      state.results = new Array(updated.num_balls).fill(1);
+      renderRecorder();
+    }
+  } else {
+    await api.send("/api/exercises", "POST", { category: "putting", ...payload });
+  }
+  closeExerciseForm();
   await loadExercises();
 };
 
-loadExercises();
+// ----------------------------------------------------------- init
+(async function init() {
+  await loadUsers();
+  await loadExercises();
+})();

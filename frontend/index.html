@@ -8,8 +8,16 @@
 </head>
 <body>
   <header>
-    <h1>⛳ Golf Training</h1>
-    <p class="subtitle">Thema: Putten</p>
+    <div>
+      <h1>⛳ Golf Training</h1>
+      <p class="subtitle">Thema: Putten</p>
+    </div>
+    <div class="user-bar">
+      <label for="user-select">Spieler</label>
+      <select id="user-select"></select>
+      <button id="add-user-btn" class="ghost small">+ Spieler</button>
+      <button id="del-user-btn" class="ghost small" title="Spieler löschen">×</button>
+    </div>
   </header>
 
   <main>
@@ -20,11 +28,11 @@
       </div>
       <div id="exercise-list" class="exercise-list"></div>
 
-      <form id="add-exercise-form" class="add-form" hidden>
+      <form id="exercise-form" class="add-form" hidden>
         <input id="ex-name" type="text" placeholder="Name (z.B. Putten 4m)" required />
         <input id="ex-distance" type="number" min="0.1" step="0.1" placeholder="Distanz (m)" required />
         <input id="ex-balls" type="number" min="1" step="1" value="10" placeholder="Bälle" required />
-        <button type="submit">Anlegen</button>
+        <button type="submit" id="ex-submit">Anlegen</button>
         <button type="button" id="cancel-exercise" class="ghost">Abbrechen</button>
       </form>
     </section>

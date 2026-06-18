@@ -1,6 +1,11 @@
 """SQLite persistence layer for the golf training app.
 
 Kept dependency-free (stdlib sqlite3) so it is easy to reuse and extend.
+
+Data model:
+  users      — lightweight profiles (no auth)
+  exercises  — shared training catalogue (default + custom)
+  sessions   — one recorded attempt of an exercise, belongs to a user
 """
 import sqlite3
 from pathlib import Path
@@ -8,6 +13,12 @@ from pathlib import Path
 DB_PATH = Path(__file__).parent / "worktracker.db"
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS exercises (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT    NOT NULL,
@@ -20,6 +31,7 @@ CREATE TABLE IF NOT EXISTS exercises (
 
 CREATE TABLE IF NOT EXISTS sessions (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     exercise_id  INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
     played_at    TEXT    NOT NULL DEFAULT (datetime('now')),
     results_json TEXT    NOT NULL,
@@ -34,6 +46,8 @@ DEFAULT_EXERCISES = [
     ("Putten 3m", "putting", 300, 10),
 ]
 
+DEFAULT_USER = "Spieler 1"
+
 
 def get_conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
@@ -45,16 +59,35 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        _migrate(conn)
     seed_defaults()
 
 
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Lightweight migrations for databases created before multi-user."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(sessions)")}
+    if "user_id" not in cols:
+        # SQLite can't add a NOT NULL column without a default; add nullable
+        # and backfill in seed_defaults().
+        conn.execute("ALTER TABLE sessions ADD COLUMN user_id INTEGER REFERENCES users(id)")
+
+
 def seed_defaults() -> None:
-    """Insert the built-in putting exercises once, if none exist yet."""
+    """Ensure a default user, default exercises, and that every session has a user."""
     with get_conn() as conn:
-        existing = conn.execute(
+        if conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"] == 0:
+            conn.execute("INSERT INTO users (name) VALUES (?)", (DEFAULT_USER,))
+
+        default_user_id = conn.execute(
+            "SELECT id FROM users ORDER BY id LIMIT 1"
+        ).fetchone()["id"]
+        conn.execute(
+            "UPDATE sessions SET user_id = ? WHERE user_id IS NULL", (default_user_id,)
+        )
+
+        if conn.execute(
             "SELECT COUNT(*) AS c FROM exercises WHERE is_default = 1"
-        ).fetchone()["c"]
-        if existing == 0:
+        ).fetchone()["c"] == 0:
             conn.executemany(
                 "INSERT INTO exercises (name, category, distance_cm, num_balls, is_default) "
                 "VALUES (?, ?, ?, ?, 1)",

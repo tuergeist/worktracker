@@ -280,49 +280,34 @@
 
     /* ── Bottom tab bar ── */
     .tab-bar {
+      display: flex;
       flex-shrink: 0;
-      height: 64px;
       background: var(--card);
       border-top: 1px solid var(--divider);
-      display: flex;
-      align-items: stretch;
-      position: relative;
+      height: 56px;
     }
-    .tab {
+    .tab-item {
       flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 3px;
-      cursor: pointer;
-      padding-bottom: 6px;
-    }
-    .tab__icon {
-      font-size: 22px;
-      line-height: 1;
-    }
-    .tab__label {
-      font-size: 11px;
-      font-weight: 500;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
       color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0;
     }
-    .tab.active .tab__label {
+    .tab-item--active {
       color: var(--primary);
-      font-weight: 600;
+      border-bottom-color: var(--primary);
     }
-    .tab.active .tab__icon {
-      filter: drop-shadow(0 0 4px rgba(46,125,50,.35));
-    }
-    .tab-indicator {
-      position: absolute;
-      bottom: 0;
-      height: 2.5px;
-      width: calc(100% / 2);
-      background: var(--primary);
-      border-radius: 2px 2px 0 0;
-      left: 0;
-      transition: left .2s;
+    .tab-item svg {
+      stroke: currentColor;
     }
   </style>
 </head>
@@ -504,19 +489,14 @@
        BOTTOM TAB BAR
   ════════════════════════════════════════ -->
   <nav class="tab-bar">
-    <div class="tab-indicator"></div>
-
-    <!-- Tab 1: Putten (active) -->
-    <div class="tab active">
-      <div class="tab__icon">🥅</div>
-      <div class="tab__label">Putten</div>
-    </div>
-
-    <!-- Tab 2: Range (inactive) -->
-    <div class="tab">
-      <div class="tab__icon">🎯</div>
-      <div class="tab__label">Range</div>
-    </div>
+    <button class="tab-item tab-item--active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span>Putten</span>
+    </button>
+    <button class="tab-item">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l9 9-9 9"/></svg>
+      <span>Range</span>
+    </button>
   </nav>
 
   <div class="home-indicator"><div class="home-indicator__bar"></div></div>

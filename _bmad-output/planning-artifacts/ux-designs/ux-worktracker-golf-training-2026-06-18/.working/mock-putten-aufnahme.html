@@ -435,15 +435,12 @@
 
     /* ── Bottom tab bar ─────────────────────────────────────── */
     .tab-bar {
-      height: 56px;
+      display: flex;
+      flex-shrink: 0;
       background: var(--card);
       border-top: 1px solid var(--divider);
-      display: flex;
-      align-items: stretch;
-      flex-shrink: 0;
-      padding-bottom: 0; /* safe area handled separately */
+      height: 56px;
     }
-
     .tab-item {
       flex: 1;
       display: flex;
@@ -451,44 +448,21 @@
       align-items: center;
       justify-content: center;
       gap: 3px;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 500;
       cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
+      padding: 0;
     }
-
-    .tab-item__icon {
-      font-size: 22px;
-      line-height: 1;
-    }
-
-    .tab-item__label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.3px;
-    }
-
-    .tab-item--active .tab-item__icon,
-    .tab-item--active .tab-item__label {
+    .tab-item--active {
       color: var(--primary);
+      border-bottom-color: var(--primary);
     }
-
-    .tab-item--inactive .tab-item__icon,
-    .tab-item--inactive .tab-item__label {
-      color: #9eaa9e;
-    }
-
-    /* Active indicator line at top of active tab */
-    .tab-item--active::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      width: 32px;
-      height: 2px;
-      background: var(--primary);
-      border-radius: 0 0 var(--r-pill) var(--r-pill);
-    }
-
-    .tab-item {
-      position: relative;
+    .tab-item svg {
+      stroke: currentColor;
     }
 
     /* ── iOS home indicator ─────────────────────────────────── */
@@ -546,7 +520,6 @@
 
     <div class="app-header__title">
       <span class="app-header__icon">⛳</span>
-      <span class="app-header__name">Golf Training</span>
     </div>
 
     <div class="app-header__right">
@@ -639,16 +612,16 @@
   </div>
 
   <!-- Bottom Tab Bar -->
-  <div class="tab-bar" role="tablist">
-    <div class="tab-item tab-item--active" role="tab" aria-selected="true">
-      <span class="tab-item__icon">🥅</span>
-      <span class="tab-item__label">Putten</span>
-    </div>
-    <div class="tab-item tab-item--inactive" role="tab" aria-selected="false">
-      <span class="tab-item__icon">🎯</span>
-      <span class="tab-item__label">Range</span>
-    </div>
-  </div>
+  <nav class="tab-bar">
+    <button class="tab-item tab-item--active">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      <span>Putten</span>
+    </button>
+    <button class="tab-item">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l9 9-9 9"/></svg>
+      <span>Range</span>
+    </button>
+  </nav>
 
   <!-- iOS Home Indicator -->
   <div class="home-indicator">

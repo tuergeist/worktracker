@@ -1,0 +1,187 @@
+:root {
+  --green: #2f7d32;
+  --green-dark: #1b5e20;
+  --bg: #f4f6f4;
+  --card: #ffffff;
+  --line: #e2e6e2;
+  --text: #1c241c;
+  --muted: #6b766b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+header {
+  background: var(--green-dark);
+  color: #fff;
+  padding: 18px 20px;
+}
+header h1 { margin: 0; font-size: 1.4rem; }
+.subtitle { margin: 4px 0 0; opacity: 0.85; font-size: 0.9rem; }
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+h2 { margin: 0 0 4px; font-size: 1.1rem; }
+h3 { margin: 16px 0 8px; font-size: 0.95rem; color: var(--muted); }
+.hint { color: var(--muted); font-size: 0.85rem; margin: 4px 0 12px; }
+
+.exercise-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.exercise-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.exercise-chip.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.exercise-chip .del {
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+.exercise-chip .del:hover { opacity: 1; }
+
+.balls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.ball {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  text-align: center;
+}
+.ball .label { font-size: 0.75rem; color: var(--muted); }
+.ball .stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.ball .value { font-size: 1.2rem; font-weight: 600; min-width: 1.5ch; }
+.ball button {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 14px 0;
+}
+.summary .stat {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-width: 80px;
+}
+.summary .stat .num { font-size: 1.3rem; font-weight: 700; color: var(--green-dark); }
+.summary .stat .cap { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+
+.record-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.record-actions input { flex: 1; min-width: 160px; }
+
+input {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+button {
+  padding: 9px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--green);
+  background: var(--green);
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+button.primary { background: var(--green-dark); border-color: var(--green-dark); }
+button.ghost { background: transparent; color: var(--green-dark); border-color: var(--line); }
+
+.add-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.stats-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.stats-summary .stat {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.stats-summary .num { font-size: 1.4rem; font-weight: 700; color: var(--green-dark); }
+.stats-summary .cap { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; }
+
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.88rem;
+}
+.history-row .when { color: var(--muted); }
+.history-row .dist { font-variant-numeric: tabular-nums; }
+.history-row .total { font-weight: 700; color: var(--green-dark); }
+.empty { color: var(--muted); font-size: 0.88rem; }

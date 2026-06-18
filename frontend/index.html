@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Golf Training — Putten</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>⛳ Golf Training</h1>
+    <p class="subtitle">Thema: Putten</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Übung</h2>
+        <button id="add-exercise-btn" class="ghost">+ Neue Übung</button>
+      </div>
+      <div id="exercise-list" class="exercise-list"></div>
+
+      <form id="add-exercise-form" class="add-form" hidden>
+        <input id="ex-name" type="text" placeholder="Name (z.B. Putten 4m)" required />
+        <input id="ex-distance" type="number" min="0.1" step="0.1" placeholder="Distanz (m)" required />
+        <input id="ex-balls" type="number" min="1" step="1" value="10" placeholder="Bälle" required />
+        <button type="submit">Anlegen</button>
+        <button type="button" id="cancel-exercise" class="ghost">Abbrechen</button>
+      </form>
+    </section>
+
+    <section id="record-panel" class="panel" hidden>
+      <div class="panel-head">
+        <h2 id="record-title">Session erfassen</h2>
+      </div>
+      <p class="hint">Pro Ball: wie viele Putts bis zum Einlochen?</p>
+      <div id="balls" class="balls"></div>
+
+      <div class="summary" id="live-summary"></div>
+
+      <div class="record-actions">
+        <input id="session-note" type="text" placeholder="Notiz (optional)" />
+        <button id="save-session" class="primary">Session speichern</button>
+      </div>
+    </section>
+
+    <section id="stats-panel" class="panel" hidden>
+      <h2>Statistik</h2>
+      <div id="stats-summary" class="stats-summary"></div>
+      <h3>Verlauf</h3>
+      <div id="history"></div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

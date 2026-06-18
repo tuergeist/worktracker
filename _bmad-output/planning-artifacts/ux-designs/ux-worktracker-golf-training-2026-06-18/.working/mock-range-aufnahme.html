@@ -50,7 +50,7 @@
       background: var(--surface);
     }
 
-    /* Dynamic Island / notch */
+    /* Dynamic Island */
     .phone-frame::before {
       content: '';
       position: absolute;
@@ -242,7 +242,7 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 14px 20px 10px;
+      padding: 12px 16px 10px;
       gap: 0;
       min-height: 0;
       background: var(--surface);
@@ -254,148 +254,118 @@
       font-size: 12px;
       font-weight: 500;
       color: var(--text-muted);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       letter-spacing: 0.2px;
     }
 
-    /* Distance label */
-    .distance-label {
-      text-align: center;
-      font-size: 14px;
-      color: var(--text-muted);
-      font-weight: 400;
-      margin-bottom: 4px;
-      letter-spacing: 0.1px;
-    }
-
-    /* HUGE number display */
-    .distance-display {
+    /* Distance buckets */
+    .bucket-list {
       display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 4px;
-      padding-bottom: 6px;
-      border-bottom: 2.5px solid var(--primary);
-      margin: 0 20px;
-    }
-    .distance-display__number {
-      font-size: 72px;
-      font-weight: 700;
-      line-height: 1;
-      color: var(--text-primary);
-      letter-spacing: -3px;
-    }
-    .distance-display__unit {
-      font-size: 22px;
-      font-weight: 400;
-      color: var(--text-muted);
-      line-height: 1;
-      padding-bottom: 8px;
-    }
-    /* Blinking cursor */
-    .distance-display__cursor {
-      width: 2.5px;
-      height: 52px;
-      background: var(--primary);
-      border-radius: 2px;
-      margin-bottom: 8px;
-      animation: blink 1.1s step-end infinite;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0; }
-    }
-
-    .distance-prev {
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 7px;
-      margin-bottom: 18px;
-      letter-spacing: 0.1px;
-    }
-
-    /* Thin divider */
-    .section-divider {
-      height: 1px;
-      background: var(--divider);
-      margin: 0 0 12px;
-    }
-
-    /* Tag section label */
-    .tag-section-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-bottom: 9px;
-    }
-
-    /* Tag row */
-    .tag-row {
-      display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 7px;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
 
-    .tag-pill {
-      display: inline-flex;
+    .bucket {
+      display: flex;
       align-items: center;
-      height: 34px;
-      padding: 0 13px;
-      border-radius: var(--r-pill);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
+      justify-content: center;
+      width: 100%;
+      height: 52px;
+      border-radius: var(--r-md);
       border: 1.5px solid var(--divider);
       background: var(--card);
-      color: var(--text-muted);
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
       letter-spacing: 0.1px;
     }
-    .tag-pill--active {
-      background: var(--primary-light);
+    .bucket--selected {
+      background: var(--primary);
       border-color: var(--primary);
-      color: var(--primary-dark);
-      font-weight: 600;
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(46,125,50,0.3);
     }
 
-    /* Shot preview card */
-    .shot-preview {
-      background: var(--card);
-      border: 1px solid var(--divider);
-      border-radius: var(--r-md);
-      padding: 10px 14px;
+    /* Exact override row */
+    .exact-override {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 13px;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    .exact-override__label {
+      font-size: 0.8rem;
       color: var(--text-muted);
+      white-space: nowrap;
     }
-    .shot-preview__label {
-      color: var(--text-muted);
-      font-weight: 400;
-    }
-    .shot-preview__value {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
-    .shot-preview__badge {
+    .exact-override__chip {
       display: inline-flex;
       align-items: center;
-      height: 22px;
-      padding: 0 9px;
-      background: var(--primary-light);
-      border: 1px solid var(--primary);
-      color: var(--primary-dark);
-      font-size: 11px;
-      font-weight: 600;
+      gap: 6px;
+      background: #ffffff;
+      border: 1px solid var(--divider);
       border-radius: var(--r-pill);
-      letter-spacing: 0.1px;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      line-height: 1;
     }
-    .shot-preview__spacer {
+    .exact-override__chip svg {
+      flex-shrink: 0;
+      opacity: 0.5;
+    }
+
+    /* Direction toggle */
+    .direction-toggle {
+      display: flex;
+      gap: 0;
+      margin-bottom: 10px;
+      border-radius: var(--r-md);
+      overflow: hidden;
+      border: 1.5px solid var(--divider);
+    }
+    .dir-btn {
       flex: 1;
+      height: 48px;
+      border: none;
+      background: var(--card);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      letter-spacing: 0.1px;
+      border-right: 1px solid var(--divider);
+    }
+    .dir-btn:last-child {
+      border-right: none;
+    }
+    .dir-btn--selected {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    /* Sauber toggle */
+    .sauber-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 52px;
+      border-radius: var(--r-md);
+      border: 1.5px solid var(--primary);
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      box-shadow: 0 3px 10px rgba(46,125,50,0.25);
+      gap: 8px;
     }
 
     /* ── Footer action bar ──────────────────────────────────── */
@@ -428,9 +398,6 @@
     .btn-save:active {
       background: var(--primary-dark);
       transform: scale(0.985);
-    }
-    .btn-save__icon {
-      font-size: 17px;
     }
 
     .footer-stat-link {
@@ -554,12 +521,12 @@
     <button class="player-chip" aria-label="Spieler wechseln">
       <span class="player-chip__avatar">MB</span>
       Markus
-      <span class="player-chip__caret">▾</span>
+      <span class="player-chip__caret">&#9662;</span>
     </button>
 
-    <span class="app-header__center">⛳</span>
+    <span class="app-header__center">&#9971;</span>
 
-    <button class="settings-btn" aria-label="Einstellungen">⋯</button>
+    <button class="settings-btn" aria-label="Einstellungen">&#8943;</button>
   </div>
 
   <!-- Club Picker Strip -->
@@ -567,18 +534,18 @@
     <button class="club-chip--selected" aria-pressed="true" aria-label="Driver ausgewählt">
       <span class="club-badge">Dr</span>
       Driver
-      <span class="caret">▾</span>
+      <span class="caret">&#9662;</span>
     </button>
     <div class="club-divider"></div>
     <div class="club-secondary" aria-label="Weitere Schläger">
       <span class="club-secondary__item">3W</span>
-      <span class="club-secondary__dot">·</span>
+      <span class="club-secondary__dot">&middot;</span>
       <span class="club-secondary__item">5i</span>
-      <span class="club-secondary__dot">·</span>
+      <span class="club-secondary__dot">&middot;</span>
       <span class="club-secondary__item">7i</span>
-      <span class="club-secondary__dot">·</span>
+      <span class="club-secondary__dot">&middot;</span>
       <span class="club-secondary__item">PW</span>
-      <span class="club-secondary__dot">·</span>
+      <span class="club-secondary__dot">&middot;</span>
       <span class="club-secondary__item">SW</span>
     </div>
   </div>
@@ -587,64 +554,60 @@
   <div class="recording-area">
 
     <!-- Session summary -->
-    <p class="session-summary">5 Schläge&nbsp;&nbsp;·&nbsp;&nbsp;Ø 146 m</p>
+    <p class="session-summary">5 Schl&auml;ge &nbsp;&middot;&nbsp; &Oslash; 146 m</p>
 
-    <!-- Distance label -->
-    <p class="distance-label">Weite (m)</p>
-
-    <!-- HUGE number display -->
-    <div class="distance-display" role="textbox" aria-label="Weite eingeben" aria-valuenow="148">
-      <span class="distance-display__number">148</span>
-      <span class="distance-display__unit">m</span>
-      <span class="distance-display__cursor" aria-hidden="true"></span>
+    <!-- Distance buckets -->
+    <div class="bucket-list" role="group" aria-label="Weite w&auml;hlen">
+      <button class="bucket" aria-pressed="false">&lt; 150 m</button>
+      <button class="bucket bucket--selected" aria-pressed="true">150 &ndash; 190 m</button>
+      <button class="bucket" aria-pressed="false">190 &ndash; 220 m</button>
+      <button class="bucket" aria-pressed="false">220 &ndash; 250 m</button>
+      <button class="bucket" aria-pressed="false">&gt; 250 m</button>
     </div>
 
-    <p class="distance-prev">Letzter: 145 m</p>
-
-    <!-- Divider -->
-    <div class="section-divider" role="separator"></div>
-
-    <!-- Tag section -->
-    <p class="tag-section-label">Schlagqualität</p>
-
-    <div class="tag-row" role="group" aria-label="Schlagqualität auswählen">
-      <button class="tag-pill" aria-pressed="false">fett</button>
-      <button class="tag-pill" aria-pressed="false">getoppt</button>
-      <button class="tag-pill" aria-pressed="false">dünn</button>
-      <button class="tag-pill tag-pill--active" aria-pressed="true">sauber</button>
-      <button class="tag-pill" aria-pressed="false">slice</button>
-      <button class="tag-pill" aria-pressed="false">hook</button>
+    <!-- Exact override row -->
+    <div class="exact-override">
+      <span class="exact-override__label">oder genau:</span>
+      <button class="exact-override__chip" aria-label="Genaue Weite eingeben">
+        170 m
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9.5 1.5a1.414 1.414 0 0 1 2 2L4 11H1.5V8.5L9.5 1.5Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
 
-    <!-- Shot preview -->
-    <div class="shot-preview" role="status" aria-label="Aktueller Schlag">
-      <span class="shot-preview__label">Aktuell:</span>
-      <span class="shot-preview__value">148 m</span>
-      <span class="shot-preview__spacer"></span>
-      <span class="shot-preview__badge">sauber</span>
+    <!-- Direction toggle -->
+    <div class="direction-toggle" role="group" aria-label="Richtung">
+      <button class="dir-btn" aria-pressed="false">&#8592; Links</button>
+      <button class="dir-btn dir-btn--selected" aria-pressed="true">Gerade</button>
+      <button class="dir-btn" aria-pressed="false">Rechts &#8594;</button>
     </div>
+
+    <!-- Sauber toggle -->
+    <button class="sauber-btn" aria-pressed="true">
+      &#10003; Sauber
+    </button>
 
   </div><!-- /recording-area -->
 
   <!-- Footer Action Bar -->
   <div class="footer-bar">
     <button class="btn-save" aria-label="Schlag speichern">
-      <span class="btn-save__icon">💾</span>
       Speichern
     </button>
     <a class="footer-stat-link" href="#" aria-label="Zur Statistik">
-      Statistik&nbsp;→
+      Statistik&nbsp;&rarr;
     </a>
   </div>
 
   <!-- Bottom Tab Bar -->
   <div class="tab-bar" role="tablist">
     <div class="tab-item tab-item--inactive" role="tab" aria-selected="false">
-      <span class="tab-item__icon">🥅</span>
+      <span class="tab-item__icon">&#127957;</span>
       <span class="tab-item__label">Putten</span>
     </div>
     <div class="tab-item tab-item--active" role="tab" aria-selected="true">
-      <span class="tab-item__icon">🎯</span>
+      <span class="tab-item__icon">&#127919;</span>
       <span class="tab-item__label">Range</span>
     </div>
   </div>

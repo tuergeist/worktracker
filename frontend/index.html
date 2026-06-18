@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Golf Training — Putten</title>
+  <title>Golf Training</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <header>
     <div>
       <h1>⛳ Golf Training</h1>
-      <p class="subtitle">Thema: Putten</p>
+      <p class="subtitle">Putten &amp; Range</p>
     </div>
     <div class="user-bar">
       <label for="user-select">Spieler</label>
@@ -20,46 +20,106 @@
     </div>
   </header>
 
+  <nav class="tabs">
+    <button class="tab active" data-tab="putting">🥅 Putten</button>
+    <button class="tab" data-tab="range">🎯 Range</button>
+  </nav>
+
   <main>
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Übung</h2>
-        <button id="add-exercise-btn" class="ghost">+ Neue Übung</button>
-      </div>
-      <div id="exercise-list" class="exercise-list"></div>
+    <!-- ============================ PUTTING ============================ -->
+    <div id="view-putting">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Übung</h2>
+          <button id="add-exercise-btn" class="ghost">+ Neue Übung</button>
+        </div>
+        <div id="exercise-list" class="chip-list"></div>
 
-      <form id="exercise-form" class="add-form" hidden>
-        <input id="ex-name" type="text" placeholder="Name (z.B. Putten 4m)" required />
-        <input id="ex-distance" type="number" min="0.1" step="0.1" placeholder="Distanz (m)" required />
-        <input id="ex-balls" type="number" min="1" step="1" value="10" placeholder="Bälle" required />
-        <button type="submit" id="ex-submit">Anlegen</button>
-        <button type="button" id="cancel-exercise" class="ghost">Abbrechen</button>
-      </form>
-    </section>
+        <form id="exercise-form" class="add-form" hidden>
+          <input id="ex-name" type="text" placeholder="Name (z.B. Putten 4m)" required />
+          <input id="ex-distance" type="number" min="0.1" step="0.1" placeholder="Distanz (m)" required />
+          <input id="ex-balls" type="number" min="1" step="1" value="10" placeholder="Bälle" required />
+          <button type="submit" id="ex-submit">Anlegen</button>
+          <button type="button" id="cancel-exercise" class="ghost">Abbrechen</button>
+        </form>
+      </section>
 
-    <section id="record-panel" class="panel" hidden>
-      <div class="panel-head">
-        <h2 id="record-title">Session erfassen</h2>
-      </div>
-      <p class="hint">Pro Ball: wie viele Putts bis zum Einlochen?</p>
-      <div id="balls" class="balls"></div>
+      <section id="record-panel" class="panel" hidden>
+        <div class="panel-head">
+          <h2 id="record-title">Session erfassen</h2>
+        </div>
+        <p class="hint">Pro Ball: wie viele Putts bis zum Einlochen?</p>
+        <div id="balls" class="balls"></div>
+        <div class="summary" id="live-summary"></div>
+        <div class="record-actions">
+          <input id="session-note" type="text" placeholder="Notiz (optional)" />
+          <button id="save-session" class="primary">Session speichern</button>
+        </div>
+      </section>
 
-      <div class="summary" id="live-summary"></div>
+      <section id="stats-panel" class="panel" hidden>
+        <h2>Statistik</h2>
+        <div id="stats-summary" class="stats-summary"></div>
+        <h3>Verlauf</h3>
+        <div id="history"></div>
+      </section>
+    </div>
 
-      <div class="record-actions">
-        <input id="session-note" type="text" placeholder="Notiz (optional)" />
-        <button id="save-session" class="primary">Session speichern</button>
-      </div>
-    </section>
+    <!-- ============================= RANGE ============================= -->
+    <div id="view-range" hidden>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Schläger</h2>
+          <button id="add-club-btn" class="ghost">+ Schläger</button>
+        </div>
+        <div id="club-list" class="chip-list"></div>
 
-    <section id="stats-panel" class="panel" hidden>
-      <h2>Statistik</h2>
-      <div id="stats-summary" class="stats-summary"></div>
-      <h3>Verlauf</h3>
-      <div id="history"></div>
-    </section>
+        <form id="club-form" class="add-form" hidden>
+          <input id="club-name" type="text" placeholder="Name (z.B. Eisen 4)" required />
+          <input id="club-abbr" type="text" placeholder="Kürzel (z.B. 4i)" required />
+          <input id="club-order" type="number" step="1" placeholder="Reihenfolge" value="100" />
+          <button type="submit" id="club-submit">Anlegen</button>
+          <button type="button" id="cancel-club" class="ghost">Abbrechen</button>
+        </form>
+      </section>
+
+      <section id="shot-panel" class="panel" hidden>
+        <div class="panel-head">
+          <h2 id="shot-title">Schlag erfassen</h2>
+        </div>
+        <div class="shot-form">
+          <label>Carry (m)
+            <input id="shot-carry" type="number" min="0" step="1" placeholder="z.B. 145" />
+          </label>
+          <label>Drift
+            <select id="shot-drift-dir">
+              <option value="0">gerade</option>
+              <option value="-1">links</option>
+              <option value="1">rechts</option>
+            </select>
+          </label>
+          <label>Drift (m)
+            <input id="shot-drift-m" type="number" min="0" step="1" value="0" placeholder="m" />
+          </label>
+        </div>
+        <p class="hint">Tags (z.B. Fehler oder sauber getroffen):</p>
+        <div id="shot-tags" class="tag-toggles"></div>
+        <div class="record-actions">
+          <input id="shot-note" type="text" placeholder="Bemerkung (optional)" />
+          <button id="save-shot" class="primary">Schlag speichern</button>
+        </div>
+      </section>
+
+      <section id="club-stats-panel" class="panel" hidden>
+        <h2>Statistik</h2>
+        <div id="club-stats-summary" class="stats-summary"></div>
+        <div id="club-tag-counts" class="tag-counts"></div>
+        <h3>Letzte Schläge</h3>
+        <div id="shot-history"></div>
+      </section>
+    </div>
   </main>
 
-  <script src="/app.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

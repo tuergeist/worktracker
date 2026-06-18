@@ -71,13 +71,13 @@ h2 { margin: 0 0 4px; font-size: 1.1rem; }
 h3 { margin: 16px 0 8px; font-size: 0.95rem; color: var(--muted); }
 .hint { color: var(--muted); font-size: 0.85rem; margin: 4px 0 12px; }
 
-.exercise-list {
+.chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
 }
-.exercise-chip {
+.chip {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -88,12 +88,12 @@ h3 { margin: 16px 0 8px; font-size: 0.95rem; color: var(--muted); }
   cursor: pointer;
   font-size: 0.9rem;
 }
-.exercise-chip.active {
+.chip.active {
   background: var(--green);
   border-color: var(--green);
   color: #fff;
 }
-.exercise-chip .icon {
+.chip .icon {
   border: none;
   background: transparent;
   color: inherit;
@@ -103,7 +103,80 @@ h3 { margin: 16px 0 8px; font-size: 0.95rem; color: var(--muted); }
   line-height: 1;
   padding: 0 2px;
 }
-.exercise-chip .icon:hover { opacity: 1; }
+.chip .icon:hover { opacity: 1; }
+
+/* topic tabs */
+.tabs {
+  max-width: 760px;
+  margin: 16px auto 0;
+  padding: 0 16px;
+  display: flex;
+  gap: 8px;
+}
+.tab {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--green-dark);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+}
+.tab.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+/* range: shot entry form */
+.shot-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.shot-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.shot-form input, .shot-form select { min-width: 120px; }
+
+.tag-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.tag-toggle {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+}
+.tag-toggle.on {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.tag-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+.tag-count {
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.tag-count b { color: var(--green-dark); }
 
 .balls {
   display: grid;

@@ -10,8 +10,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from . import db
-from .models import ExerciseCreate, ExerciseUpdate, SessionCreate, UserCreate
-from .stats import aggregate_stats, session_stats
+from .models import (
+    ClubCreate,
+    ClubUpdate,
+    ExerciseCreate,
+    ExerciseUpdate,
+    SessionCreate,
+    ShotCreate,
+    UserCreate,
+)
+from .stats import aggregate_stats, club_stats, session_stats
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
@@ -48,6 +56,30 @@ def _session_dict(row) -> dict:
         "results": results,
         "note": row["note"],
         "stats": session_stats(results),
+    }
+
+
+def _club_dict(row) -> dict:
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "abbr": row["abbr"],
+        "sort_order": row["sort_order"],
+        "is_default": bool(row["is_default"]),
+        "created_at": row["created_at"],
+    }
+
+
+def _shot_dict(row) -> dict:
+    return {
+        "id": row["id"],
+        "user_id": row["user_id"],
+        "club_id": row["club_id"],
+        "carry_m": row["carry_m"],
+        "drift_m": row["drift_m"],
+        "tags": json.loads(row["tags_json"]),
+        "note": row["note"],
+        "played_at": row["played_at"],
     }
 
 
@@ -180,6 +212,106 @@ def delete_session(session_id: int):
 def exercise_stats(exercise_id: int, user_id: int):
     sessions = list_sessions(exercise_id, user_id)  # newest-first, each with 'stats'
     return aggregate_stats(sessions)
+
+
+# ----------------------------------------------------------- range: clubs
+@app.get("/api/shot-tags")
+def shot_tags():
+    return db.DEFAULT_SHOT_TAGS
+
+
+@app.get("/api/clubs")
+def list_clubs():
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM clubs ORDER BY sort_order, id"
+        ).fetchall()
+    return [_club_dict(r) for r in rows]
+
+
+@app.post("/api/clubs", status_code=201)
+def create_club(body: ClubCreate):
+    with db.get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO clubs (name, abbr, sort_order, is_default) VALUES (?, ?, ?, 0)",
+            (body.name, body.abbr, body.sort_order),
+        )
+        row = conn.execute("SELECT * FROM clubs WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return _club_dict(row)
+
+
+@app.patch("/api/clubs/{club_id}")
+def update_club(club_id: int, body: ClubUpdate):
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(400, "No fields to update")
+    assignments = ", ".join(f"{k} = ?" for k in fields)
+    values = list(fields.values()) + [club_id]
+    with db.get_conn() as conn:
+        cur = conn.execute(f"UPDATE clubs SET {assignments} WHERE id = ?", values)
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Club not found")
+        row = conn.execute("SELECT * FROM clubs WHERE id = ?", (club_id,)).fetchone()
+    return _club_dict(row)
+
+
+@app.delete("/api/clubs/{club_id}", status_code=204)
+def delete_club(club_id: int):
+    with db.get_conn() as conn:
+        cur = conn.execute("DELETE FROM clubs WHERE id = ?", (club_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Club not found")
+    return None
+
+
+# ------------------------------------------------------------- range: shots
+@app.post("/api/shots", status_code=201)
+def create_shot(body: ShotCreate):
+    with db.get_conn() as conn:
+        if conn.execute("SELECT 1 FROM users WHERE id = ?", (body.user_id,)).fetchone() is None:
+            raise HTTPException(404, "User not found")
+        if conn.execute("SELECT 1 FROM clubs WHERE id = ?", (body.club_id,)).fetchone() is None:
+            raise HTTPException(404, "Club not found")
+        cur = conn.execute(
+            "INSERT INTO shots (user_id, club_id, carry_m, drift_m, tags_json, note) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                body.user_id,
+                body.club_id,
+                body.carry_m,
+                body.drift_m,
+                json.dumps(body.tags),
+                body.note,
+            ),
+        )
+        row = conn.execute("SELECT * FROM shots WHERE id = ?", (cur.lastrowid,)).fetchone()
+    return _shot_dict(row)
+
+
+@app.get("/api/shots")
+def list_shots(club_id: int, user_id: int):
+    with db.get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM shots WHERE club_id = ? AND user_id = ? "
+            "ORDER BY played_at DESC, id DESC",
+            (club_id, user_id),
+        ).fetchall()
+    return [_shot_dict(r) for r in rows]
+
+
+@app.delete("/api/shots/{shot_id}", status_code=204)
+def delete_shot(shot_id: int):
+    with db.get_conn() as conn:
+        cur = conn.execute("DELETE FROM shots WHERE id = ?", (shot_id,))
+        if cur.rowcount == 0:
+            raise HTTPException(404, "Shot not found")
+    return None
+
+
+@app.get("/api/clubs/{club_id}/stats")
+def club_statistics(club_id: int, user_id: int):
+    shots = list_shots(club_id, user_id)  # newest-first
+    return club_stats(shots)
 
 
 # ----------------------------------------------------------------- static

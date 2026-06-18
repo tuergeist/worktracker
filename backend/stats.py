@@ -62,3 +62,41 @@ def aggregate_stats(sessions: List[dict]) -> dict:
         "avg_one_putt_pct": round(sum(one_putt_pcts) / len(one_putt_pcts), 1),
         "history": history,
     }
+
+
+def club_stats(shots: List[dict]) -> dict:
+    """Aggregate range shots for one club.
+
+    Each shot carries carry_m, drift_m (signed: - left, + right) and tags.
+    Shots are passed newest-first.
+    """
+    if not shots:
+        return {
+            "shots": 0,
+            "avg_carry": None,
+            "max_carry": None,
+            "min_carry": None,
+            "avg_drift": None,
+            "avg_abs_drift": None,
+            "tag_counts": {},
+            "history": [],
+        }
+
+    carries = [s["carry_m"] for s in shots]
+    drifts = [s["drift_m"] for s in shots]
+    tag_counts: dict = {}
+    for s in shots:
+        for t in s["tags"]:
+            tag_counts[t] = tag_counts.get(t, 0) + 1
+
+    n = len(shots)
+    return {
+        "shots": n,
+        "avg_carry": round(sum(carries) / n, 1),
+        "max_carry": max(carries),
+        "min_carry": min(carries),
+        "avg_drift": round(sum(drifts) / n, 1),          # signed bias
+        "avg_abs_drift": round(sum(abs(d) for d in drifts) / n, 1),  # dispersion
+        "tag_counts": tag_counts,
+        "history": shots,  # newest-first; frontend renders recent ones
+    }

@@ -37,6 +37,27 @@ CREATE TABLE IF NOT EXISTS sessions (
     results_json TEXT    NOT NULL,
     note         TEXT
 );
+
+CREATE TABLE IF NOT EXISTS clubs (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT    NOT NULL,
+    abbr       TEXT    NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 100,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+-- One driving-range shot. drift_m is signed: negative = left, positive = right.
+CREATE TABLE IF NOT EXISTS shots (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    club_id    INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
+    carry_m    REAL    NOT NULL,
+    drift_m    REAL    NOT NULL DEFAULT 0,
+    tags_json  TEXT    NOT NULL DEFAULT '[]',
+    note       TEXT,
+    played_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
 """
 
 # (name, category, distance_cm, num_balls)
@@ -47,6 +68,25 @@ DEFAULT_EXERCISES = [
 ]
 
 DEFAULT_USER = "Spieler 1"
+
+# (name, abbr, sort_order)
+DEFAULT_CLUBS = [
+    ("Driver", "Dr", 10),
+    ("Holz 3", "3W", 20),
+    ("Hybrid", "Hy", 30),
+    ("Eisen 5", "5i", 50),
+    ("Eisen 6", "6i", 60),
+    ("Eisen 7", "7i", 70),
+    ("Eisen 8", "8i", 80),
+    ("Eisen 9", "9i", 90),
+    ("Pitching Wedge", "PW", 100),
+    ("Sand Wedge", "SW", 110),
+]
+
+# Suggested shot quality tags (configurable later; served to the frontend).
+DEFAULT_SHOT_TAGS = [
+    "fett", "getoppt", "dünn", "sauber", "slice", "hook", "push", "pull",
+]
 
 
 def get_conn() -> sqlite3.Connection:
@@ -92,4 +132,12 @@ def seed_defaults() -> None:
                 "INSERT INTO exercises (name, category, distance_cm, num_balls, is_default) "
                 "VALUES (?, ?, ?, ?, 1)",
                 DEFAULT_EXERCISES,
+            )
+
+        if conn.execute(
+            "SELECT COUNT(*) AS c FROM clubs WHERE is_default = 1"
+        ).fetchone()["c"] == 0:
+            conn.executemany(
+                "INSERT INTO clubs (name, abbr, sort_order, is_default) VALUES (?, ?, ?, 1)",
+                DEFAULT_CLUBS,
             )

@@ -29,3 +29,25 @@ class SessionCreate(BaseModel):
     # putts needed per ball, e.g. [1, 2, 1, 3, 1, 1, 2, 1, 1, 1]
     results: List[int] = Field(..., min_length=1)
     note: Optional[str] = None
+
+
+# --- Range / clubs ---
+class ClubCreate(BaseModel):
+    name: str = Field(..., min_length=1)
+    abbr: str = Field(..., min_length=1)
+    sort_order: int = 100
+
+
+class ClubUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    abbr: Optional[str] = Field(None, min_length=1)
+    sort_order: Optional[int] = None
+
+
+class ShotCreate(BaseModel):
+    user_id: int
+    club_id: int
+    carry_m: float = Field(..., ge=0)
+    drift_m: float = 0.0  # signed: negative = left, positive = right
+    tags: List[str] = []
+    note: Optional[str] = None

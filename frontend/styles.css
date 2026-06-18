@@ -212,6 +212,7 @@ h3 { margin: 16px 0 8px; font-size: 0.95rem; color: var(--muted); }
   border-radius: 50%;
   border: 1px solid var(--line);
   background: #fff;
+  color: var(--text);
   font-size: 1rem;
   cursor: pointer;
 }

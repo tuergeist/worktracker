@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=390, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Statistik · Putten 1m</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -23,20 +23,81 @@
     }
 
     html, body {
-      width: 390px;
-      min-height: 844px;
-      background: var(--surface);
+      min-height: 100vh;
+      background: #2a2a2e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-family: system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .phone-frame {
+      width: 390px;
+      height: 844px;
+      border-radius: 44px;
+      border: 8px solid #1a1a1c;
+      box-shadow:
+        0 0 0 1px #3a3a3e,
+        0 32px 80px rgba(0,0,0,0.7),
+        inset 0 0 0 1px #4a4a4e;
+      position: relative;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    /* Dynamic Island */
+    .phone-frame::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 34px;
+      background: #1a1a1c;
+      border-radius: 999px;
+      z-index: 100;
+    }
+    .phone {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      overflow: hidden;
       color: var(--text-primary);
       font-size: 16px;
-      -webkit-font-smoothing: antialiased;
+    }
+    .status-bar {
+      height: 44px;
+      background: var(--card);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 0 24px 8px;
+      flex-shrink: 0;
+    }
+    .status-bar__time { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: var(--text-primary); }
+    .status-bar__icons { display: flex; align-items: center; gap: 6px; }
+    .status-bar__icons svg { fill: var(--text-primary); }
+    .home-indicator {
+      height: 34px;
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .home-indicator__bar {
+      width: 134px;
+      height: 5px;
+      background: var(--text-primary);
+      border-radius: 999px;
+      opacity: 0.18;
     }
 
     /* ── Sticky Header ── */
     .header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
+      flex-shrink: 0;
       height: 56px;
       background: var(--card);
       border-bottom: 1px solid var(--divider);
@@ -84,8 +145,10 @@
 
     /* ── Scrollable content ── */
     .content {
+      flex: 1;
+      overflow-y: auto;
       padding: 20px 16px;
-      padding-bottom: 100px; /* clear tab bar */
+      padding-bottom: 20px;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -217,15 +280,13 @@
 
     /* ── Bottom tab bar ── */
     .tab-bar {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 390px;
+      flex-shrink: 0;
       height: 64px;
       background: var(--card);
       border-top: 1px solid var(--divider);
       display: flex;
       align-items: stretch;
+      position: relative;
     }
     .tab {
       flex: 1;
@@ -251,7 +312,6 @@
       font-weight: 600;
     }
     .tab.active .tab__icon {
-      /* subtle glow */
       filter: drop-shadow(0 0 4px rgba(46,125,50,.35));
     }
     .tab-indicator {
@@ -268,203 +328,200 @@
 </head>
 <body>
 
-<!-- ════════════════════════════════════════
-     HEADER
-════════════════════════════════════════ -->
-<header class="header">
-  <button class="header__back">
-    <!-- chevron-left -->
-    <svg viewBox="0 0 24 24">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>
-    Zurück
-  </button>
-
-  <div class="header__title">
-    Statistik
-    <span>Putten · 1 m</span>
+<div class="phone-frame">
+<div class="phone">
+  <!-- iOS Status Bar -->
+  <div class="status-bar">
+    <span class="status-bar__time">9:41</span>
+    <div class="status-bar__icons">
+      <svg width="17" height="12" viewBox="0 0 17 12"><rect x="0" y="6" width="3" height="6" rx="1"/><rect x="4.5" y="4" width="3" height="8" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="16" height="12" viewBox="0 0 16 12"><path d="M8 9.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zm0-3.5a6 6 0 014.24 1.76l-1.42 1.42A4 4 0 008 8a4 4 0 00-2.83 1.18L3.76 7.76A6 6 0 018 6zm0-3.5a9.5 9.5 0 016.72 2.78l-1.42 1.42A7.5 7.5 0 008 4.5a7.5 7.5 0 00-5.3 2.2L1.28 5.28A9.5 9.5 0 018 2.5z" fill-rule="evenodd"/></svg>
+      <svg width="25" height="12" viewBox="0 0 25 12"><rect x="0" y="1" width="21" height="10" rx="2.5" stroke="currentColor" stroke-width="1" fill="none"/><rect x="22" y="3.5" width="2" height="5" rx="1" fill="currentColor"/><rect x="1.5" y="2.5" width="16" height="7" rx="1.5" fill="currentColor"/></svg>
+    </div>
   </div>
 
-  <div class="header__right"></div>
-</header>
+  <!-- ════════════════════════════════════════
+       HEADER
+  ════════════════════════════════════════ -->
+  <header class="header">
+    <button class="header__back">
+      <!-- chevron-left -->
+      <svg viewBox="0 0 24 24">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Zurück
+    </button>
 
-<!-- ════════════════════════════════════════
-     CONTENT
-════════════════════════════════════════ -->
-<main class="content">
-
-  <!-- ── Stats summary 2×2 ── -->
-  <section>
-    <div class="stats-grid">
-
-      <div class="stat-card">
-        <div class="stat-card__number">3</div>
-        <div class="stat-card__label">Sessions</div>
-      </div>
-
-      <div class="stat-card highlight">
-        <div class="stat-card__number">10</div>
-        <div class="stat-card__label">Bestwert Putts</div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-card__number">11.7</div>
-        <div class="stat-card__label">Ø Putts pro Session</div>
-      </div>
-
-      <div class="stat-card highlight">
-        <div class="stat-card__number">100%</div>
-        <div class="stat-card__label">1-Putt-Quote</div>
-      </div>
-
+    <div class="header__title">
+      Statistik
+      <span>Putten · 1 m</span>
     </div>
-  </section>
 
-  <!-- ── Trend chart ── -->
-  <section class="chart-section">
-    <div class="section-heading">Verlauf</div>
-    <div class="chart-card">
-      <div class="chart-wrap">
-        <!--
-          Chart dimensions:  358 × 140 (card inner width × height)
-          Y range:  9 – 16  → 7 units  →  1 unit = (120 - 20) / 7 ≈ 14.3px
-          Data points (putts): 10, 10, 15
-          Y positions (top=0 → low values at top):
-            y_offset_top = 20 (padding top)  y_offset_bot = 120 (padding bot area ends here)
-            usable_h = 100
-            unit_h = 100 / 7 ≈ 14.29
-            10 → (16-10)/7 * 100 + 20 = 6/7*100+20 = 85.7+20 = 105.7  ... wait, higher value = more putts = lower is better?
-            Actually treat y-axis as: max=16 at top, min=9 at bottom
-            value=10: y = 20 + (16-10)/(16-9) * 100 = 20 + 6/7*100 = 20 + 85.7 = 105.7  → closer to bottom (more putts than min)
-            Hmm, that renders 10 near bottom (good: low putts = near bottom? no — standard chart: higher value higher up)
-            Standard: min at bottom, max at top
-            value=10: y = 20 + (1 - (10-9)/(16-9)) * 100 = 20 + (1 - 1/7)*100 = 20 + 85.7 = 105.7
-            value=15: y = 20 + (1 - (15-9)/(16-9)) * 100 = 20 + (1 - 6/7)*100 = 20 + 14.3 = 34.3
-          X positions: 3 points evenly spaced, padding 40px each side
-            x1 = 40, x2 = 179, x3 = 318
-        -->
-        <svg viewBox="0 0 358 148" xmlns="http://www.w3.org/2000/svg">
+    <div class="header__right"></div>
+  </header>
 
-          <!-- Y-axis labels -->
-          <text x="14" y="42" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="end">16</text>
-          <text x="14" y="122" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="end">9</text>
+  <!-- ════════════════════════════════════════
+       CONTENT
+  ════════════════════════════════════════ -->
+  <main class="content">
 
-          <!-- Horizontal grid lines (subtle) -->
-          <line x1="20" y1="38" x2="338" y2="38" stroke="#e2e6e2" stroke-width="1"/>
-          <line x1="20" y1="120" x2="338" y2="120" stroke="#e2e6e2" stroke-width="1"/>
+    <!-- ── Stats summary 2×2 ── -->
+    <section>
+      <div class="stats-grid">
 
-          <!-- Gradient fill under the line -->
-          <defs>
-            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%"   stop-color="#2e7d32" stop-opacity="0.18"/>
-              <stop offset="100%" stop-color="#2e7d32" stop-opacity="0.0"/>
-            </linearGradient>
-          </defs>
+        <div class="stat-card">
+          <div class="stat-card__number">3</div>
+          <div class="stat-card__label">Sessions</div>
+        </div>
 
-          <!-- Area fill -->
-          <!-- Points: (40, 105.7), (179, 105.7), (318, 34.3) -->
-          <path
-            d="M40,105.7 L179,105.7 L318,34.3 L318,120 L179,120 L40,120 Z"
-            fill="url(#areaGrad)"
-          />
+        <div class="stat-card highlight">
+          <div class="stat-card__number">10</div>
+          <div class="stat-card__label">Bestwert Putts</div>
+        </div>
 
-          <!-- Line -->
-          <polyline
-            points="40,105.7 179,105.7 318,34.3"
-            fill="none"
-            stroke="#2e7d32"
-            stroke-width="2.5"
-            stroke-linejoin="round"
-            stroke-linecap="round"
-          />
+        <div class="stat-card">
+          <div class="stat-card__number">11.7</div>
+          <div class="stat-card__label">Ø Putts pro Session</div>
+        </div>
 
-          <!-- Data point dots -->
-          <circle cx="40"  cy="105.7" r="4.5" fill="#2e7d32" stroke="white" stroke-width="2"/>
-          <circle cx="179" cy="105.7" r="4.5" fill="#2e7d32" stroke="white" stroke-width="2"/>
-          <circle cx="318" cy="34.3"  r="4.5" fill="#2e7d32" stroke="white" stroke-width="2"/>
+        <div class="stat-card highlight">
+          <div class="stat-card__number">100%</div>
+          <div class="stat-card__label">1-Putt-Quote</div>
+        </div>
 
-          <!-- Value labels above dots -->
-          <text x="40"  y="100" font-size="11" font-weight="600" fill="#2e7d32" font-family="system-ui" text-anchor="middle">10</text>
-          <text x="179" y="100" font-size="11" font-weight="600" fill="#2e7d32" font-family="system-ui" text-anchor="middle">10</text>
-          <text x="318" y="28"  font-size="11" font-weight="600" fill="#2e7d32" font-family="system-ui" text-anchor="middle">15</text>
-
-          <!-- X-axis baseline -->
-          <line x1="20" y1="120" x2="338" y2="120" stroke="#cdd1cd" stroke-width="1"/>
-
-          <!-- X-axis date labels -->
-          <text x="40"  y="136" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="middle">18.06</text>
-          <text x="179" y="136" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="middle">18.06</text>
-          <text x="318" y="136" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="middle">18.06</text>
-
-        </svg>
       </div>
+    </section>
+
+    <!-- ── Trend chart ── -->
+    <section class="chart-section">
+      <div class="section-heading">Verlauf</div>
+      <div class="chart-card">
+        <div class="chart-wrap">
+          <svg viewBox="0 0 358 148" xmlns="http://www.w3.org/2000/svg">
+
+            <!-- Y-axis labels -->
+            <text x="14" y="42" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="end">16</text>
+            <text x="14" y="122" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="end">9</text>
+
+            <!-- Horizontal grid lines (subtle) -->
+            <line x1="20" y1="38" x2="338" y2="38" stroke="#e2e6e2" stroke-width="1"/>
+            <line x1="20" y1="120" x2="338" y2="120" stroke="#e2e6e2" stroke-width="1"/>
+
+            <!-- Gradient fill under the line -->
+            <defs>
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#2e7d32" stop-opacity="0.18"/>
+                <stop offset="100%" stop-color="#2e7d32" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Area fill -->
+            <path
+              d="M40,105.7 L179,105.7 L318,34.3 L318,120 L179,120 L40,120 Z"
+              fill="url(#areaGrad)"
+            />
+
+            <!-- Line -->
+            <polyline
+              points="40,105.7 179,105.7 318,34.3"
+              fill="none"
+              stroke="#2e7d32"
+              stroke-width="2.5"
+              stroke-linejoin="round"
+              stroke-linecap="round"
+            />
+
+            <!-- Data point dots -->
+            <circle cx="40"  cy="105.7" r="4.5" fill="#2e7d32" stroke="white" stroke-width="2"/>
+            <circle cx="179" cy="105.7" r="4.5" fill="#2e7d32" stroke="white" stroke-width="2"/>
+            <circle cx="318" cy="34.3"  r="4.5" fill="#2e7d32" stroke="white" stroke-width="2"/>
+
+            <!-- Value labels above dots -->
+            <text x="40"  y="100" font-size="11" font-weight="600" fill="#2e7d32" font-family="system-ui" text-anchor="middle">10</text>
+            <text x="179" y="100" font-size="11" font-weight="600" fill="#2e7d32" font-family="system-ui" text-anchor="middle">10</text>
+            <text x="318" y="28"  font-size="11" font-weight="600" fill="#2e7d32" font-family="system-ui" text-anchor="middle">15</text>
+
+            <!-- X-axis baseline -->
+            <line x1="20" y1="120" x2="338" y2="120" stroke="#cdd1cd" stroke-width="1"/>
+
+            <!-- X-axis date labels -->
+            <text x="40"  y="136" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="middle">18.06</text>
+            <text x="179" y="136" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="middle">18.06</text>
+            <text x="318" y="136" font-size="10" fill="#6b766b" font-family="system-ui" text-anchor="middle">18.06</text>
+
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── History list ── -->
+    <section class="history-section">
+      <div class="section-heading">Letzte Sessions</div>
+      <div class="history-card">
+
+        <!-- Row 1 -->
+        <div class="history-row">
+          <div class="history-row__date">18.06.26</div>
+          <div class="history-row__dist">
+            <span class="dist-chip">7 <span class="chip-label">1×</span></span>
+            <span class="dist-chip">2 <span class="chip-label">2×</span></span>
+            <span class="dist-chip">1 <span class="chip-label">3×</span></span>
+            <span class="dist-chip">0 <span class="chip-label">4+</span></span>
+          </div>
+          <div class="history-row__total">10 <span>Putts</span></div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="history-row">
+          <div class="history-row__date">18.06.26</div>
+          <div class="history-row__dist">
+            <span class="dist-chip">7 <span class="chip-label">1×</span></span>
+            <span class="dist-chip">2 <span class="chip-label">2×</span></span>
+            <span class="dist-chip">1 <span class="chip-label">3×</span></span>
+            <span class="dist-chip">0 <span class="chip-label">4+</span></span>
+          </div>
+          <div class="history-row__total">10 <span>Putts</span></div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="history-row">
+          <div class="history-row__date">18.06.26</div>
+          <div class="history-row__dist">
+            <span class="dist-chip">1 <span class="chip-label">1×</span></span>
+            <span class="dist-chip">5 <span class="chip-label">2×</span></span>
+            <span class="dist-chip">3 <span class="chip-label">3×</span></span>
+            <span class="dist-chip">1 <span class="chip-label">4+</span></span>
+          </div>
+          <div class="history-row__total">15 <span>Putts</span></div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ════════════════════════════════════════
+       BOTTOM TAB BAR
+  ════════════════════════════════════════ -->
+  <nav class="tab-bar">
+    <div class="tab-indicator"></div>
+
+    <!-- Tab 1: Putten (active) -->
+    <div class="tab active">
+      <div class="tab__icon">🥅</div>
+      <div class="tab__label">Putten</div>
     </div>
-  </section>
 
-  <!-- ── History list ── -->
-  <section class="history-section">
-    <div class="section-heading">Letzte Sessions</div>
-    <div class="history-card">
-
-      <!-- Row 1 -->
-      <div class="history-row">
-        <div class="history-row__date">18.06.26</div>
-        <div class="history-row__dist">
-          <span class="dist-chip">7 <span class="chip-label">1×</span></span>
-          <span class="dist-chip">2 <span class="chip-label">2×</span></span>
-          <span class="dist-chip">1 <span class="chip-label">3×</span></span>
-          <span class="dist-chip">0 <span class="chip-label">4+</span></span>
-        </div>
-        <div class="history-row__total">10 <span>Putts</span></div>
-      </div>
-
-      <!-- Row 2 -->
-      <div class="history-row">
-        <div class="history-row__date">18.06.26</div>
-        <div class="history-row__dist">
-          <span class="dist-chip">7 <span class="chip-label">1×</span></span>
-          <span class="dist-chip">2 <span class="chip-label">2×</span></span>
-          <span class="dist-chip">1 <span class="chip-label">3×</span></span>
-          <span class="dist-chip">0 <span class="chip-label">4+</span></span>
-        </div>
-        <div class="history-row__total">10 <span>Putts</span></div>
-      </div>
-
-      <!-- Row 3 -->
-      <div class="history-row">
-        <div class="history-row__date">18.06.26</div>
-        <div class="history-row__dist">
-          <span class="dist-chip">1 <span class="chip-label">1×</span></span>
-          <span class="dist-chip">5 <span class="chip-label">2×</span></span>
-          <span class="dist-chip">3 <span class="chip-label">3×</span></span>
-          <span class="dist-chip">1 <span class="chip-label">4+</span></span>
-        </div>
-        <div class="history-row__total">15 <span>Putts</span></div>
-      </div>
-
+    <!-- Tab 2: Range (inactive) -->
+    <div class="tab">
+      <div class="tab__icon">🎯</div>
+      <div class="tab__label">Range</div>
     </div>
-  </section>
+  </nav>
 
-</main>
-
-<!-- ════════════════════════════════════════
-     BOTTOM TAB BAR
-════════════════════════════════════════ -->
-<nav class="tab-bar">
-  <div class="tab-indicator"></div>
-
-  <!-- Tab 1: Putten (active) -->
-  <div class="tab active">
-    <div class="tab__icon">🥅</div>
-    <div class="tab__label">Putten</div>
-  </div>
-
-  <!-- Tab 2: Range (inactive) -->
-  <div class="tab">
-    <div class="tab__icon">🎯</div>
-    <div class="tab__label">Range</div>
-  </div>
-</nav>
+  <div class="home-indicator"><div class="home-indicator__bar"></div></div>
+</div>
+</div>
 
 </body>
 </html>

@@ -9,10 +9,12 @@ function chartLabel(playedAt) {
   });
 }
 
+const BUCKETS = ["1", "2", "3", "4+"];
+
 const local = {
   exercises: [],
   selected: null,
-  results: [],
+  dist: { "1": 0, "2": 0, "3": 0, "4+": 0 },
   editingId: null,
 };
 
@@ -65,7 +67,7 @@ function renderExercises() {
 
 function selectExercise(ex) {
   local.selected = ex;
-  local.results = new Array(ex.num_balls).fill(1);
+  local.dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
   renderExercises();
   renderRecorder();
   loadStats();
@@ -96,21 +98,27 @@ function renderRecorder() {
     `Session erfassen — ${local.selected.name}`;
   const wrap = document.getElementById("balls");
   wrap.innerHTML = "";
-  local.results.forEach((putts, i) => {
+
+  const labels = { "1": "1-Putt", "2": "2-Putts", "3": "3-Putts", "4+": "4+-Putts" };
+  BUCKETS.forEach((bucket) => {
     const ball = document.createElement("div");
     ball.className = "ball";
     ball.innerHTML = `
-      <div class="label">Ball ${i + 1}</div>
+      <div class="label">${labels[bucket]}</div>
       <div class="stepper">
         <button type="button" data-d="-1">−</button>
-        <span class="value">${putts}</span>
+        <span class="value">${local.dist[bucket]}</span>
         <button type="button" data-d="1">+</button>
       </div>`;
     ball.querySelectorAll("button").forEach((btn) => {
       btn.onclick = () => {
         const d = parseInt(btn.dataset.d, 10);
-        local.results[i] = Math.max(1, local.results[i] + d);
-        ball.querySelector(".value").textContent = local.results[i];
+        const next = local.dist[bucket] + d;
+        if (next < 0) return;
+        const total = BUCKETS.reduce((s, b) => s + local.dist[b], 0);
+        if (d > 0 && total >= local.selected.num_balls) return;
+        local.dist[bucket] = next;
+        ball.querySelector(".value").textContent = local.dist[bucket];
         renderLiveSummary();
       };
     });
@@ -119,34 +127,45 @@ function renderRecorder() {
   renderLiveSummary();
 }
 
-function computeStats(results) {
-  const dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
-  results.forEach((p) => { dist[p <= 3 ? String(p) : "4+"] += 1; });
-  const total = results.reduce((a, b) => a + b, 0);
-  return { total, dist };
+function totalPutts() {
+  return BUCKETS.reduce((s, b) => s + (b === "4+" ? 4 : parseInt(b)) * local.dist[b], 0);
 }
 
 function renderLiveSummary() {
-  const s = computeStats(local.results);
+  const assigned = BUCKETS.reduce((s, b) => s + local.dist[b], 0);
+  const remaining = local.selected.num_balls - assigned;
+  const putts = totalPutts();
   document.getElementById("live-summary").innerHTML = `
-    ${statBox(s.total, "Putts gesamt")}
-    ${statBox(s.dist["1"], "1-Putts")}
-    ${statBox(s.dist["2"], "2-Putts")}
-    ${statBox(s.dist["3"], "3-Putts")}
-    ${statBox(s.dist["4+"], "4+-Putts")}`;
+    ${statBox(putts, "Putts gesamt")}
+    ${statBox(local.dist["1"], "1-Putts")}
+    ${statBox(local.dist["2"], "2-Putts")}
+    ${statBox(local.dist["3"], "3-Putts")}
+    ${statBox(local.dist["4+"], "4+-Putts")}
+    ${remaining > 0 ? statBox(remaining, "offen") : ""}`;
 }
 
 async function saveSession() {
   if (!store.currentUserId) { alert("Bitte zuerst einen Spieler anlegen."); return; }
+  const assigned = BUCKETS.reduce((s, b) => s + local.dist[b], 0);
+  if (assigned !== local.selected.num_balls) {
+    alert(`Bitte alle ${local.selected.num_balls} Bälle vergeben (aktuell: ${assigned}).`);
+    return;
+  }
+  // Reconstruct per-ball array for API (order irrelevant for stats)
+  const results = [];
+  BUCKETS.forEach((b) => {
+    const v = b === "4+" ? 4 : parseInt(b);
+    for (let i = 0; i < local.dist[b]; i++) results.push(v);
+  });
   const note = document.getElementById("session-note").value.trim();
   await api.send("/api/sessions", "POST", {
     user_id: store.currentUserId,
     exercise_id: local.selected.id,
-    results: local.results,
+    results,
     note: note || null,
   });
   document.getElementById("session-note").value = "";
-  local.results = new Array(local.selected.num_balls).fill(1);
+  local.dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
   renderRecorder();
   loadStats();
 }

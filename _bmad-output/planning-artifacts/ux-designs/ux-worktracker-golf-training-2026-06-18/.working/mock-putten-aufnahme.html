@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=390, initial-scale=1.0">
+  <title>Golf Training – Putten Aufnahme</title>
+  <style>
+    /* ── Reset & base ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:        #2e7d32;
+      --primary-dark:   #1b5e20;
+      --primary-light:  #e8f5e9;
+      --surface:        #f4f6f4;
+      --card:           #ffffff;
+      --divider:        #e2e6e2;
+      --text-primary:   #1c241c;
+      --text-muted:     #6b766b;
+      --error:          #c62828;
+      --r-sm:           6px;
+      --r-md:           12px;
+      --r-lg:           16px;
+      --r-pill:         999px;
+      --touch-min:      48px;
+    }
+
+    html, body {
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--surface);
+      color: var(--text-primary);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Full-screen phone shell ────────────────────────────── */
+    .phone {
+      width: 390px;
+      height: 844px;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* ── iOS status bar simulation ──────────────────────────── */
+    .status-bar {
+      height: 44px;
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .status-bar__time {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: var(--text-primary);
+    }
+    .status-bar__icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-bar__icons svg {
+      fill: var(--text-primary);
+    }
+
+    /* ── App header ─────────────────────────────────────────── */
+    .app-header {
+      height: 56px;
+      background: var(--card);
+      border-bottom: 1px solid var(--divider);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .player-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: var(--r-pill);
+      min-height: var(--touch-min);
+      cursor: pointer;
+      border: none;
+      outline: none;
+    }
+    .player-chip__caret {
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .app-header__title {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+    .app-header__icon {
+      font-size: 18px;
+      line-height: 1;
+    }
+    .app-header__name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .app-header__right {
+      width: 80px; /* mirror left side for centering */
+    }
+
+    /* ── Picker strip ───────────────────────────────────────── */
+    .picker-strip {
+      height: 52px;
+      background: var(--card);
+      border-bottom: 1px solid var(--divider);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .exercise-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface);
+      border: 1.5px solid var(--divider);
+      border-radius: var(--r-md);
+      padding: 0 14px;
+      height: 36px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+    .exercise-chip__label {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+    .exercise-chip__caret {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: 2px;
+    }
+
+    /* ── Recording area ─────────────────────────────────────── */
+    .recording-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 12px 8px;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    .counter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Counter cell ───────────────────────────────────────── */
+    .counter-cell {
+      background: var(--card);
+      border-radius: var(--r-lg);
+      border: 1.5px solid var(--divider);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 8px;
+      position: relative;
+      min-height: 120px;
+      transition: border-color 0.15s;
+    }
+
+    .counter-cell--active {
+      border-color: var(--primary);
+      background: linear-gradient(145deg, #ffffff 0%, #f6faf6 100%);
+    }
+
+    .counter-cell__label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .counter-cell--active .counter-cell__label {
+      color: var(--primary-dark);
+    }
+
+    .counter-cell__controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      width: 100%;
+    }
+
+    .counter-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--r-md);
+      border: none;
+      background: var(--surface);
+      color: var(--text-primary);
+      font-size: 22px;
+      font-weight: 300;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.1s, transform 0.08s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .counter-btn:active {
+      background: var(--divider);
+      transform: scale(0.94);
+    }
+
+    .counter-btn--minus {
+      color: var(--text-muted);
+    }
+
+    .counter-btn--plus {
+      color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .counter-btn--plus:active {
+      background: #c8e6c9;
+    }
+
+    .counter-cell--active .counter-btn--plus {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .counter-cell--active .counter-btn--plus:active {
+      background: var(--primary-dark);
+    }
+
+    .counter-cell__value {
+      font-size: 3rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--text-primary);
+      min-width: 56px;
+      text-align: center;
+      letter-spacing: -2px;
+    }
+
+    .counter-cell--active .counter-cell__value {
+      color: var(--primary-dark);
+    }
+
+    .counter-cell--zero .counter-cell__value {
+      color: var(--divider);
+    }
+
+    /* Dot indicator at top-right of cell */
+    .counter-cell__dot {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      opacity: 0;
+    }
+    .counter-cell--active .counter-cell__dot {
+      opacity: 1;
+    }
+
+    /* ── Progress indicator ─────────────────────────────────── */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: var(--divider);
+      border-radius: var(--r-pill);
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--primary);
+      border-radius: var(--r-pill);
+      transition: width 0.3s ease;
+    }
+
+    .progress-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .progress-label--complete {
+      color: var(--primary);
+    }
+
+    .progress-checkmark {
+      font-size: 14px;
+      color: var(--primary);
+    }
+
+    /* ── Footer action bar ──────────────────────────────────── */
+    .footer-bar {
+      background: var(--card);
+      border-top: 1px solid var(--divider);
+      padding: 12px 16px 0;
+      flex-shrink: 0;
+    }
+
+    .btn-save {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 52px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--r-md);
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: background 0.15s, transform 0.08s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-save:active {
+      background: var(--primary-dark);
+      transform: scale(0.985);
+    }
+
+    .footer-stat-link {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 40px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    .footer-stat-link:hover {
+      color: var(--primary);
+    }
+
+    /* ── Bottom tab bar ─────────────────────────────────────── */
+    .tab-bar {
+      height: 56px;
+      background: var(--card);
+      border-top: 1px solid var(--divider);
+      display: flex;
+      align-items: stretch;
+      flex-shrink: 0;
+      padding-bottom: 0; /* safe area handled separately */
+    }
+
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tab-item__icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .tab-item__label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .tab-item--active .tab-item__icon,
+    .tab-item--active .tab-item__label {
+      color: var(--primary);
+    }
+
+    .tab-item--inactive .tab-item__icon,
+    .tab-item--inactive .tab-item__label {
+      color: #9eaa9e;
+    }
+
+    /* Active indicator line at top of active tab */
+    .tab-item--active::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      width: 32px;
+      height: 2px;
+      background: var(--primary);
+      border-radius: 0 0 var(--r-pill) var(--r-pill);
+    }
+
+    .tab-item {
+      position: relative;
+    }
+
+    /* ── iOS home indicator ─────────────────────────────────── */
+    .home-indicator {
+      height: 34px;
+      background: var(--card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .home-indicator__bar {
+      width: 134px;
+      height: 5px;
+      background: var(--text-primary);
+      border-radius: var(--r-pill);
+      opacity: 0.18;
+    }
+  </style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- iOS Status Bar -->
+  <div class="status-bar">
+    <span class="status-bar__time">9:41</span>
+    <div class="status-bar__icons">
+      <!-- Signal bars -->
+      <svg width="17" height="12" viewBox="0 0 17 12">
+        <rect x="0"  y="8"  width="3" height="4" rx="0.5" opacity="1"/>
+        <rect x="4.5" y="5.5" width="3" height="6.5" rx="0.5" opacity="1"/>
+        <rect x="9"  y="3"  width="3" height="9" rx="0.5" opacity="1"/>
+        <rect x="13.5" y="0" width="3" height="12" rx="0.5" opacity="0.3"/>
+      </svg>
+      <!-- WiFi -->
+      <svg width="16" height="12" viewBox="0 0 16 12">
+        <path d="M8 9.5 a1.5 1.5 0 1 1 0 .001Z" fill-rule="evenodd"/>
+        <path d="M3.8 6.8 a6 6 0 0 1 8.4 0" stroke="#1c241c" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.8"/>
+        <path d="M1.2 4.2 a9.6 9.6 0 0 1 13.6 0" stroke="#1c241c" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.5"/>
+      </svg>
+      <!-- Battery -->
+      <svg width="25" height="12" viewBox="0 0 25 12">
+        <rect x="0" y="1" width="21" height="10" rx="2.5" stroke="#1c241c" stroke-width="1" fill="none" opacity="0.35"/>
+        <rect x="1.5" y="2.5" width="17" height="7" rx="1.5" fill="#1c241c" opacity="0.9"/>
+        <path d="M22 4.5 v3 a1.5 1.5 0 0 0 0-3Z" fill="#1c241c" opacity="0.4"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- App Header -->
+  <div class="app-header">
+    <button class="player-chip" aria-label="Spieler wechseln">
+      Markus
+      <span class="player-chip__caret">▾</span>
+    </button>
+
+    <div class="app-header__title">
+      <span class="app-header__icon">⛳</span>
+      <span class="app-header__name">Golf Training</span>
+    </div>
+
+    <div class="app-header__right"></div>
+  </div>
+
+  <!-- Picker Strip -->
+  <div class="picker-strip">
+    <div class="exercise-chip" role="button" aria-label="Übung wechseln">
+      <span>Putten 1m</span>
+      <span class="exercise-chip__label">·&nbsp;10 Bälle</span>
+      <span class="exercise-chip__caret">▾</span>
+    </div>
+  </div>
+
+  <!-- Recording Area -->
+  <div class="recording-area">
+
+    <div class="counter-grid">
+
+      <!-- 1-Putt: 7 (active — dominant result) -->
+      <div class="counter-cell counter-cell--active" role="group" aria-label="1-Putt: 7">
+        <div class="counter-cell__dot"></div>
+        <span class="counter-cell__label">1-Putt</span>
+        <div class="counter-cell__controls">
+          <button class="counter-btn counter-btn--minus" aria-label="Weniger">−</button>
+          <span class="counter-cell__value">7</span>
+          <button class="counter-btn counter-btn--plus" aria-label="Mehr">+</button>
+        </div>
+      </div>
+
+      <!-- 2-Putts: 2 -->
+      <div class="counter-cell" role="group" aria-label="2-Putts: 2">
+        <div class="counter-cell__dot"></div>
+        <span class="counter-cell__label">2-Putts</span>
+        <div class="counter-cell__controls">
+          <button class="counter-btn counter-btn--minus" aria-label="Weniger">−</button>
+          <span class="counter-cell__value">2</span>
+          <button class="counter-btn counter-btn--plus" aria-label="Mehr">+</button>
+        </div>
+      </div>
+
+      <!-- 3-Putts: 1 -->
+      <div class="counter-cell" role="group" aria-label="3-Putts: 1">
+        <div class="counter-cell__dot"></div>
+        <span class="counter-cell__label">3-Putts</span>
+        <div class="counter-cell__controls">
+          <button class="counter-btn counter-btn--minus" aria-label="Weniger">−</button>
+          <span class="counter-cell__value">1</span>
+          <button class="counter-btn counter-btn--plus" aria-label="Mehr">+</button>
+        </div>
+      </div>
+
+      <!-- 4+-Putts: 0 -->
+      <div class="counter-cell counter-cell--zero" role="group" aria-label="4+-Putts: 0">
+        <div class="counter-cell__dot"></div>
+        <span class="counter-cell__label">4+-Putts</span>
+        <div class="counter-cell__controls">
+          <button class="counter-btn counter-btn--minus" aria-label="Weniger" disabled style="opacity:0.3;cursor:default">−</button>
+          <span class="counter-cell__value">0</span>
+          <button class="counter-btn counter-btn--plus" aria-label="Mehr">+</button>
+        </div>
+      </div>
+
+    </div><!-- /counter-grid -->
+
+    <!-- Progress indicator -->
+    <div class="progress-row">
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width:100%"></div>
+      </div>
+      <span class="progress-label progress-label--complete">10 / 10 Bälle</span>
+      <span class="progress-checkmark">✓</span>
+    </div>
+
+  </div><!-- /recording-area -->
+
+  <!-- Footer Action Bar -->
+  <div class="footer-bar">
+    <button class="btn-save">Speichern</button>
+    <a class="footer-stat-link" href="#" aria-label="Zur Statistik">
+      Statistik
+      <span>→</span>
+    </a>
+  </div>
+
+  <!-- Bottom Tab Bar -->
+  <div class="tab-bar" role="tablist">
+    <div class="tab-item tab-item--active" role="tab" aria-selected="true">
+      <span class="tab-item__icon">🥅</span>
+      <span class="tab-item__label">Putten</span>
+    </div>
+    <div class="tab-item tab-item--inactive" role="tab" aria-selected="false">
+      <span class="tab-item__icon">🎯</span>
+      <span class="tab-item__label">Range</span>
+    </div>
+  </div>
+
+  <!-- iOS Home Indicator -->
+  <div class="home-indicator">
+    <div class="home-indicator__bar"></div>
+  </div>
+
+</div><!-- /phone -->
+</body>
+</html>

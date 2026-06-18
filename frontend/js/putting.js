@@ -312,10 +312,70 @@ function historyRow(s) {
     </div>`;
 }
 
+// ----------------------------------------------------- green photo analysis
+function initPhoto() {
+  const input = $("putten-photo-input");
+  $("putten-photo").onclick = () => input.click();
+  input.onchange = () => {
+    const file = input.files && input.files[0];
+    input.value = ""; // allow re-picking the same file
+    if (file) analyzePhoto(file);
+  };
+}
+
+async function analyzePhoto(file) {
+  haptic("light");
+  openSheet({
+    title: "Green-Analyse",
+    bodyHtml: `<div class="analyze-loading"><div class="spinner"></div><p>Foto wird ausgewertet …</p></div>`,
+  });
+  try {
+    const fd = new FormData();
+    fd.append("photo", file);
+    const r = await fetch("/api/analyze-putt", { method: "POST", body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    showAnalysis(await r.json());
+    haptic("success");
+  } catch (e) {
+    let msg = String(e.message || e);
+    try { msg = JSON.parse(msg).detail || msg; } catch (_) { /* keep raw */ }
+    openSheet({
+      title: "Green-Analyse",
+      bodyHtml: `<p class="analyze-error">Analyse fehlgeschlagen.</p>
+                 <p class="analyze-error__detail">${escapeHtml(msg)}</p>`,
+    });
+    haptic("warning");
+  }
+}
+
+function showAnalysis(d) {
+  let body = `<img class="analyze-img" src="data:image/png;base64,${d.annotated_png_b64}" alt="Annotiertes Green" />`;
+  body += `<div class="analyze-summary">`;
+  body += `<div class="analyze-line"><b>${d.total}</b> Bälle auf dem Grün`
+        + (d.balls_in_hole ? `, ${d.balls_in_hole} im Loch` : "") + `</div>`;
+  if (d.zones) {
+    const t = d.tendency, disp = d.dispersion;
+    const longTxt = `${Math.abs(t.long_cm)} cm ${t.long_cm >= 0 ? "zu kurz" : "zu lang"}`;
+    const latTxt = `${Math.abs(t.lat_cm)} cm ${t.lat_cm >= 0 ? "rechts" : "links"}`;
+    body += `<div class="analyze-zones">
+      <span class="zone zone--good">${d.zones.good} gut</span>
+      <span class="zone zone--bad">${d.zones.bad} schlecht</span>
+      <span class="zone zone--mist">${d.zones.mist} Mist</span>
+    </div>`;
+    body += `<div class="analyze-line">Tendenz: ${longTxt}, ${latTxt}</div>`;
+    body += `<div class="analyze-line analyze-line--muted">Streuung: längs ±${disp.long_cm} cm, quer ±${disp.lat_cm} cm</div>`;
+  } else {
+    body += `<div class="analyze-line analyze-line--muted">${d.within}/${d.total} innerhalb ${d.radius_m} m (keine Putterachse erkannt)</div>`;
+  }
+  body += `</div>`;
+  openSheet({ title: "Green-Analyse", bodyHtml: body });
+}
+
 // ----------------------------------------------------------- init
 export function initPutting() {
   $("putten-picker").onclick = () => openPicker();
   $("putten-save").onclick = () => saveSession();
+  initPhoto();
 
   // main.js drives stats navigation; we just (re)render into the containers.
   window.__renderPuttenStats = () => renderStats();

@@ -9,6 +9,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # App code
 COPY backend ./backend
 COPY frontend ./frontend
+# Putt-analyzer module (single file; reused by the /api/analyze-putt endpoint)
+COPY tools/putt-analyzer/putt_analyze.py ./tools/putt-analyzer/putt_analyze.py
 
 # SQLite DB lives on a mounted volume so data survives container restarts
 ENV WT_DB=/app/data/worktracker.db

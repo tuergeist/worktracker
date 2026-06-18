@@ -3,11 +3,22 @@
 Serves a JSON API under /api and the static frontend at /.
 Run with:  uvicorn backend.app:app --reload
 """
+import base64
 import json
+import os
+import sys
+import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
+
+# Reuse the standalone putt-analyzer module (green-photo analysis).
+sys.path.insert(0, str(Path(__file__).parent.parent / "tools" / "putt-analyzer"))
+try:
+    import putt_analyze
+except Exception:  # heavy deps (numpy/scipy/PIL) may be absent in some setups
+    putt_analyze = None
 
 from . import db
 from .models import (
@@ -312,6 +323,71 @@ def delete_shot(shot_id: int):
 def club_statistics(club_id: int, user_id: int):
     shots = list_shots(club_id, user_id)  # newest-first
     return club_stats(shots)
+
+
+# ------------------------------------------------------- green photo analysis
+@app.post("/api/analyze-putt")
+async def analyze_putt(photo: UploadFile = File(...), putter_inch: int = 34):
+    """Analyse a putting-green photo: detect hole/putter/balls and report the
+    dispersion relative to the putter→hole line. Uses the Claude VLM + CV."""
+    if putt_analyze is None:
+        raise HTTPException(503, "Analyse nicht verfügbar (Abhängigkeiten fehlen).")
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        raise HTTPException(503, "ANTHROPIC_API_KEY ist nicht gesetzt.")
+    if putter_inch not in (33, 34, 35):
+        putter_inch = 34
+
+    data = await photo.read()
+    tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+    tmp.write(data)
+    tmp.close()
+    out_png = tmp.name + ".png"
+    try:
+        res = putt_analyze.analyze(
+            tmp.name, detector="hybrid", provider="anthropic", putter_inch=putter_inch
+        )
+        st = putt_analyze.putting_stats(res)
+        putt_analyze.annotate(res, out_png)
+        with open(out_png, "rb") as fh:
+            annotated_b64 = base64.b64encode(fh.read()).decode()
+    except Exception as exc:  # VLM/network/parse failures → surface to the client
+        raise HTTPException(502, f"Analyse fehlgeschlagen: {exc}")
+    finally:
+        for p in (tmp.name, out_png):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+    payload = {
+        "total": res.total,
+        "balls_in_hole": res.balls_in_hole,
+        "within": res.within,
+        "radius_m": res.radius_m,
+        "annotated_png_b64": annotated_b64,
+    }
+    if st is not None:
+        payload.update({
+            "zones": {"good": st["good"], "bad": st["bad"], "mist": st["mist"]},
+            "tendency": {
+                # long > 0 = zu kurz; lat > 0 = rechts (see putt_analyze.putting_stats)
+                "long_cm": round(st["mean_long"] * 100),
+                "lat_cm": round(st["mean_lat"] * 100),
+            },
+            "dispersion": {
+                "long_cm": round(st["std_long"] * 100),
+                "lat_cm": round(st["std_lat"] * 100),
+            },
+            "balls": [
+                {
+                    "dist_m": round(b["dist"], 2),
+                    "long_cm": round(b["long"] * 100),
+                    "lat_cm": round(b["lat"] * 100),
+                }
+                for b in sorted(st["balls"], key=lambda b: b["dist"])
+            ],
+        })
+    return payload
 
 
 # ----------------------------------------------------------------- static

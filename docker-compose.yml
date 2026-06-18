@@ -10,4 +10,6 @@ services:
       - ./data:/app/data
     environment:
       - WT_DB=/app/data/worktracker.db
+      # Needed for /api/analyze-putt (Claude VLM). Set in your shell or a .env file.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     restart: unless-stopped

@@ -370,6 +370,55 @@ html, body {
 }
 .exact-chip__pen { opacity: 0.5; font-size: 12px; }
 
+/* ── Exact-value slider ─────────────────────────────────── */
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: -2px 0 12px;
+  padding: 10px 12px;
+  background: var(--primary-light);
+  border-radius: var(--r-md);
+}
+.slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--divider);
+  outline: none;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+.slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+.slider-out {
+  min-width: 56px;
+  text-align: right;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Tag pills ──────────────────────────────────────────── */
 .tag-row {
   display: flex;

@@ -122,6 +122,7 @@ function renderBuckets() {
     btn.onclick = () => {
       local.bucketIdx = i;
       local.override = null; // selecting a bucket clears the override
+      hideSlider();
       renderBuckets();
       renderExact();
       updateSaveState();
@@ -132,23 +133,59 @@ function renderBuckets() {
 }
 
 // ----------------------------------------------------------- exact override
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
 function renderExact() {
   const span = document.getElementById("range-exact-value");
   const carry = currentCarry();
   span.textContent = carry != null ? `${carry} m` : "–";
 }
 
-function promptExact() {
-  const raw = prompt("Genaue Carry-Distanz in Metern:");
-  if (raw == null) return;
-  const v = parseInt(raw, 10);
-  if (isNaN(v) || v < 0) { alert("Bitte eine gültige Zahl angeben."); return; }
-  local.override = v;
-  local.bucketIdx = null; // override wins, clear bucket selection
-  renderBuckets();
+// Reveal/hide the inline slider for an exact carry value.
+function toggleSlider() {
+  const wrap = document.getElementById("range-slider-wrap");
+  const chip = document.getElementById("range-exact");
+  const open = wrap.hidden;
+  wrap.hidden = !open;
+  chip.setAttribute("aria-expanded", String(open));
+  if (!open) return;
+
+  const slider = document.getElementById("range-slider");
+  const center = local.club ? centerFor(local.club) : FALLBACK_CENTER;
+  slider.min = clamp(round5(center - 90), 30, 350);
+  slider.max = clamp(round5(center + 90), 60, 400);
+  slider.value = currentCarry() ?? center;
+  // Commit the shown value immediately so Speichern is ready without dragging.
+  local.override = parseInt(slider.value, 10);
+  local.bucketIdx = null;
+  syncSliderOut(slider.value);
   renderExact();
+  renderBuckets();
   updateSaveState();
   haptic("light");
+}
+
+function syncSliderOut(v) {
+  document.getElementById("range-slider-out").textContent = `${v} m`;
+}
+
+function onSliderInput(e) {
+  const v = parseInt(e.target.value, 10);
+  local.override = v;        // override wins
+  local.bucketIdx = null;    // clear bucket selection
+  syncSliderOut(v);
+  renderExact();
+  renderBuckets();
+  updateSaveState();
+}
+
+function hideSlider() {
+  const wrap = document.getElementById("range-slider-wrap");
+  if (wrap) wrap.hidden = true;
+  const chip = document.getElementById("range-exact");
+  if (chip) chip.setAttribute("aria-expanded", "false");
 }
 
 // ----------------------------------------------------------- tags
@@ -199,6 +236,7 @@ function resetShot() {
   local.override = null;
   local.pickedTags.clear();
   local.direction = "gerade";
+  hideSlider();
   renderBuckets();
   renderExact();
   renderTags();
@@ -313,7 +351,8 @@ export async function initRange() {
   renderTags();
   renderDirection();
 
-  document.getElementById("range-exact").onclick = promptExact;
+  document.getElementById("range-exact").onclick = toggleSlider;
+  document.getElementById("range-slider").addEventListener("input", onSliderInput);
   document.getElementById("range-save").onclick = saveShot;
 
   window.__renderRangeStats = renderRangeStats;

@@ -76,10 +76,15 @@
         <div id="range-summary" class="range-summary"></div>
         <div id="range-buckets" class="bucket-list"></div>
         <div class="exact-override">oder genau:
-          <button id="range-exact" class="exact-chip">
+          <button id="range-exact" class="exact-chip" aria-expanded="false">
             <span id="range-exact-value">–</span>
             <span class="exact-chip__pen" aria-hidden="true">✎</span>
           </button>
+        </div>
+        <div id="range-slider-wrap" class="slider-wrap" hidden>
+          <input id="range-slider" class="slider" type="range" min="0" max="300" step="1"
+                 aria-label="Genaue Carry-Distanz in Metern" />
+          <output id="range-slider-out" class="slider-out">– m</output>
         </div>
         <div id="range-tags" class="tag-row"></div>
         <div id="range-direction" class="direction-toggle"></div>

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worktracker
+  labels:
+    app: worktracker
+spec:
+  replicas: 2                 # stateless app; Postgres holds the data
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: worktracker
+  template:
+    metadata:
+      labels:
+        app: worktracker
+    spec:
+      containers:
+        - name: worktracker
+          # Override with your built image, e.g. ghcr.io/tuergeist/worktracker:<tag>
+          image: ghcr.io/tuergeist/worktracker:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: worktracker-secrets
+                  key: DATABASE_URL
+            # Optional: only needed for the green-photo analysis endpoint.
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: worktracker-secrets
+                  key: ANTHROPIC_API_KEY
+                  optional: true
+          readinessProbe:
+            httpGet:
+              path: /api/users
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/users
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

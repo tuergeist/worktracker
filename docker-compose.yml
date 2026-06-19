@@ -1,15 +1,34 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: worktracker-db
+    environment:
+      - POSTGRES_USER=worktracker
+      - POSTGRES_PASSWORD=worktracker
+      - POSTGRES_DB=worktracker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worktracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   app:
     build: .
     image: worktracker
     container_name: worktracker
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8080:8000"
-    volumes:
-      # Persist the SQLite database outside the container
-      - ./data:/app/data
     environment:
-      - WT_DB=/app/data/worktracker.db
+      - DATABASE_URL=postgresql://worktracker:worktracker@db:5432/worktracker
       # Needed for /api/analyze-putt (Claude VLM). Set in your shell or a .env file.
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     restart: unless-stopped
+
+volumes:
+  pgdata:

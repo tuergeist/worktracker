@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: worktracker-db
+  labels:
+    app: worktracker-db
+spec:
+  # Headless service for the StatefulSet's stable network identity.
+  clusterIP: None
+  selector:
+    app: worktracker-db
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: worktracker-db
+  labels:
+    app: worktracker-db
+spec:
+  serviceName: worktracker-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worktracker-db
+  template:
+    metadata:
+      labels:
+        app: worktracker-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef: { name: worktracker-secrets, key: POSTGRES_USER }
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: worktracker-secrets, key: POSTGRES_PASSWORD }
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef: { name: worktracker-secrets, key: POSTGRES_DB }
+            # Subpath so Postgres owns a clean data dir on the volume.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "worktracker"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "worktracker"]
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi

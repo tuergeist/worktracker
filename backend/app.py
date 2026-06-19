@@ -34,7 +34,7 @@ from .stats import aggregate_stats, club_stats, session_stats
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
-app = FastAPI(title="Golf Training — Putting")
+app = FastAPI(title="scratchlab")
 
 db.init_db()
 

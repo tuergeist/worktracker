@@ -78,10 +78,12 @@ function driftLabel(driftM) {
 // ----------------------------------------------------------- clubs
 async function loadClubs() {
   local.clubs = await api.get("/api/clubs");
-  if (local.clubs.length && !local.club) {
-    local.club = local.clubs[0];
-  }
+  // Keep the current selection if it still exists, else fall back to the first.
+  const stillThere = local.club && local.clubs.some((c) => c.id === local.club.id);
+  if (!stillThere) local.club = local.clubs[0] || null;
   renderClubs();
+  renderBuckets();
+  updateSaveState();
 }
 
 function renderClubs() {
@@ -91,11 +93,8 @@ function renderClubs() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "club-chip" + (local.club?.id === c.id ? " club-chip--selected" : "");
-    const badge = document.createElement("span");
-    badge.className = "club-chip__badge";
-    badge.textContent = c.abbr;
-    btn.appendChild(badge);
-    btn.appendChild(document.createTextNode(" " + c.name));
+    btn.textContent = c.abbr;            // short label only, e.g. "7i"
+    btn.title = c.name;                  // full name on hover / a11y
     btn.onclick = () => selectClub(c);
     row.appendChild(btn);
   });
@@ -366,6 +365,8 @@ export async function initRange() {
   document.getElementById("range-save").onclick = saveShot;
 
   window.__renderRangeStats = renderRangeStats;
+  // Settings (users.js) calls this after a club is added/deleted.
+  window.__reloadClubs = () => loadClubs();
 
   onUserChange(() => { loadStats(); });
 

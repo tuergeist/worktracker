@@ -55,3 +55,6 @@ coverage/
 data/
 __pycache__/
 *.pyc
+tools/putt-analyzer/venv/
+tools/putt-analyzer/.pytest_cache/
+**/__pycache__/

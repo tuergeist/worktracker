@@ -4,6 +4,7 @@ import { initAuth } from "./auth.js";
 import { openSettings } from "./users.js";
 import { initPutting } from "./putting.js";
 import { initRange } from "./range.js";
+import { maybeShowIntro } from "./intro.js";
 
 const LS_TAB = "wt.tab";
 
@@ -71,4 +72,6 @@ function wireSettings() {
 
   const last = localStorage.getItem(LS_TAB);
   activateTab(last === "range" ? "range" : "putten");
+
+  maybeShowIntro();
 })();

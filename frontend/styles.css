@@ -846,3 +846,78 @@ html, body {
 .login-error { margin-top: 12px; color: var(--error); font-size: 14px; }
 
 #app[hidden] { display: none; }
+#view-login[hidden] { display: none; }
+
+/* ── First-run intro ────────────────────────────────────── */
+#view-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  padding: 24px;
+}
+/* id selector with display:flex must not override the bare [hidden] rule */
+#view-intro[hidden] { display: none; }
+
+.intro-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  max-width: 360px;
+  width: 100%;
+  animation: intro-rise 0.25s ease-out;
+}
+.intro-logo { width: 56px; height: 56px; }
+.intro-title {
+  margin: 4px 0 18px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+.intro-rows {
+  list-style: none;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+.intro-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+.intro-row__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.intro-row__icon svg { width: 22px; height: 22px; }
+.intro-row__text {
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+.intro-row__text strong { color: var(--text-primary); font-weight: 600; }
+.intro-btn { width: 100%; }
+
+@keyframes intro-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro-card { animation: none; }
+}

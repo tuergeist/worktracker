@@ -16,6 +16,19 @@ spec:
       labels:
         app: worktracker
     spec:
+      initContainers:
+        # Apply DB migrations before the app starts. An advisory lock in
+        # alembic/env.py serialises this across concurrent pods.
+        - name: migrate
+          image: ghcr.io/tuergeist/worktracker:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: worktracker-secrets
+                  key: DATABASE_URL
       containers:
         - name: worktracker
           # Override with your built image, e.g. ghcr.io/tuergeist/worktracker:<tag>

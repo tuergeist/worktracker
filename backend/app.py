@@ -46,7 +46,9 @@ FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await db.create_db_and_tables()
+    # Schema is applied by Alembic (migrate step); here we just wait for the DB
+    # and seed the global default catalogue (idempotent).
+    await db.wait_for_db()
     await db.seed_defaults()
     yield
 

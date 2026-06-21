@@ -15,6 +15,18 @@ services:
       retries: 10
     restart: unless-stopped
 
+  migrate:
+    build: .
+    image: worktracker
+    container_name: worktracker-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://worktracker:worktracker@db:5432/worktracker
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
   app:
     build: .
     image: worktracker
@@ -22,6 +34,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "8080:8000"
     environment:

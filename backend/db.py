@@ -169,16 +169,19 @@ async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 
 
 # ------------------------------------------------------------------ lifecycle
-async def create_db_and_tables(retries: int = 30, delay: float = 1.0) -> None:
-    """Create all tables. Retries the initial connect so the app can start
-    before Postgres is ready (k8s / compose ordering)."""
+async def wait_for_db(retries: int = 30, delay: float = 1.0) -> None:
+    """Block until Postgres accepts a connection (k8s / compose ordering).
+
+    Schema creation is handled by Alembic migrations (run as a separate
+    migrate step / initContainer), NOT here — the app only seeds data.
+    """
     last_err: Exception | None = None
     for _ in range(retries):
         try:
-            async with engine.begin() as conn:
-                await conn.run_sync(Base.metadata.create_all)
+            async with engine.connect() as conn:
+                await conn.exec_driver_sql("SELECT 1")
             return
-        except (OSError, OperationalError, asyncpg.PostgresError) as err:  # DB not up yet
+        except (OSError, OperationalError, asyncpg.PostgresError) as err:
             last_err = err
             await asyncio.sleep(delay)
     raise RuntimeError(f"Datenbank nicht erreichbar: {last_err}")

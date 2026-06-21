@@ -6,9 +6,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# App code
+# App code + DB migrations
 COPY backend ./backend
 COPY frontend ./frontend
+COPY alembic.ini ./alembic.ini
+COPY migrations ./migrations
 # Putt-analyzer module (single file; reused by the /api/analyze-putt endpoint)
 COPY tools/putt-analyzer/putt_analyze.py ./tools/putt-analyzer/putt_analyze.py
 

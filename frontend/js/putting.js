@@ -217,10 +217,6 @@ async function createExercise() {
 // ----------------------------------------------------------- save
 async function saveSession() {
   if (!local.selected) return;
-  if (!store.currentUserId) {
-    alert("Bitte zuerst einen Spieler anlegen.");
-    return;
-  }
   if (assigned() !== local.selected.num_balls) {
     haptic("warning");
     return;
@@ -234,7 +230,6 @@ async function saveSession() {
   });
 
   await api.send("/api/sessions", "POST", {
-    user_id: store.currentUserId,
     exercise_id: local.selected.id,
     results,
     note: null,
@@ -258,17 +253,16 @@ async function renderStats() {
   const chart = $("putten-chart");
   const hist = $("putten-history");
 
-  if (!local.selected || !store.currentUserId) {
+  if (!local.selected) {
     cards.innerHTML = "";
     chart.innerHTML = "";
     hist.innerHTML = `<div class="empty">Noch keine Sessions — leg los! 🏌️</div>`;
     return;
   }
 
-  const u = store.currentUserId;
   const ex = local.selected.id;
-  const stats = await api.get(`/api/exercises/${ex}/stats?user_id=${u}`);
-  const sessions = await api.get(`/api/sessions?exercise_id=${ex}&user_id=${u}`);
+  const stats = await api.get(`/api/exercises/${ex}/stats`);
+  const sessions = await api.get(`/api/sessions?exercise_id=${ex}`);
 
   // cards
   cards.innerHTML = [

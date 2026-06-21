@@ -254,14 +254,12 @@ function resetShot() {
 }
 
 async function saveShot() {
-  if (!store.currentUserId) { alert("Bitte zuerst einen Spieler anlegen."); return; }
   if (!local.club) return;
   const carry = currentCarry();
   if (carry == null) return;
 
   const dir = DIRECTIONS.find((d) => d.key === local.direction) || DIRECTIONS[1];
   await api.send("/api/shots", "POST", {
-    user_id: store.currentUserId,
     club_id: local.club.id,
     carry_m: carry,
     drift_m: dir.drift,
@@ -276,10 +274,8 @@ async function saveShot() {
 
 // ----------------------------------------------------------- stats
 async function loadStats() {
-  if (!local.club || !store.currentUserId) return;
-  const stats = await api.get(
-    `/api/clubs/${local.club.id}/stats?user_id=${store.currentUserId}`
-  );
+  if (!local.club) return;
+  const stats = await api.get(`/api/clubs/${local.club.id}/stats`);
   local.stats = stats;
   renderSummary();
 }

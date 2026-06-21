@@ -819,3 +819,30 @@ html, body {
   .sheet, .sheet-backdrop, .progress-bar-fill,
   .counter-btn, .btn-primary, .counter-cell { transition: none; }
 }
+
+/* ── Login screen ───────────────────────────────────────── */
+#view-login {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  padding: 24px;
+}
+.login-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  max-width: 360px;
+  width: 100%;
+}
+.login-logo { width: 64px; height: 64px; }
+.login-title { margin: 4px 0 0; font-size: 28px; font-weight: 700; color: var(--text-primary); }
+.login-sub { margin: 0 0 20px; font-size: 15px; color: var(--text-muted); }
+.login-btn { width: 100%; }
+.login-error { margin-top: 12px; color: var(--error); font-size: 14px; }
+
+#app[hidden] { display: none; }

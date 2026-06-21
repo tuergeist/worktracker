@@ -1,6 +1,7 @@
 "use strict";
 
-import { initUsers, openSettings } from "./users.js";
+import { initAuth } from "./auth.js";
+import { openSettings } from "./users.js";
 import { initPutting } from "./putting.js";
 import { initRange } from "./range.js";
 
@@ -57,11 +58,14 @@ function wireSettings() {
 }
 
 (async function init() {
+  // Auth gate first: only boot the app once we have an authenticated session.
+  const ok = await initAuth();
+  if (!ok) return;
+
   wireTabs();
   wireStatsNav();
   wireSettings();
 
-  await initUsers();   // load players first; topic views depend on current user
   initPutting();
   await initRange();
 

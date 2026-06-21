@@ -1,11 +1,11 @@
-"""Request/response schemas."""
+"""Request bodies for the domain API.
+
+User identity comes from the authenticated session (fastapi-users), so these
+bodies no longer carry a ``user_id`` — it is derived from the current user.
+"""
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
-
-
-class UserCreate(BaseModel):
-    name: str = Field(..., min_length=1)
 
 
 class ExerciseCreate(BaseModel):
@@ -24,7 +24,6 @@ class ExerciseUpdate(BaseModel):
 
 
 class SessionCreate(BaseModel):
-    user_id: int
     exercise_id: int
     # putts needed per ball, e.g. [1, 2, 1, 3, 1, 1, 2, 1, 1, 1]
     results: List[int] = Field(..., min_length=1)
@@ -45,7 +44,6 @@ class ClubUpdate(BaseModel):
 
 
 class ShotCreate(BaseModel):
-    user_id: int
     club_id: int
     carry_m: float = Field(..., ge=0)
     drift_m: float = 0.0  # signed: negative = left, positive = right

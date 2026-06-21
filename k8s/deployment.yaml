@@ -29,6 +29,26 @@ spec:
                 secretKeyRef:
                   name: worktracker-secrets
                   key: DATABASE_URL
+            # Google SSO
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: worktracker-secrets
+                  key: GOOGLE_CLIENT_ID
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: worktracker-secrets
+                  key: GOOGLE_CLIENT_SECRET
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: worktracker-secrets
+                  key: SESSION_SECRET
+                  optional: true
+            # fastapi-users derives the OAuth callback per request; with
+            # --proxy-headers behind a TLS ingress it becomes
+            # https://scratchlab.app/api/auth/google/callback (allow that in Google).
             # Optional: only needed for the green-photo analysis endpoint.
             - name: ANTHROPIC_API_KEY
               valueFrom:

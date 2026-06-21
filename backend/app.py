@@ -1,6 +1,9 @@
-"""Golf training app — FastAPI backend.
+"""scratchlab — FastAPI backend.
 
-Serves a JSON API under /api and the static frontend at /.
+Async SQLAlchemy (ORM) persistence + fastapi-users auth (Google OAuth, cookie
+session). All domain endpoints require login and scope per-user data to the
+authenticated user. Serves the JSON API under /api and the static frontend at /.
+
 Run with:  uvicorn backend.app:app --reload
 """
 import base64
@@ -8,10 +11,13 @@ import json
 import os
 import sys
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import delete, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # Reuse the standalone putt-analyzer module (green-photo analysis).
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools" / "putt-analyzer"))
@@ -21,6 +27,7 @@ except Exception:  # heavy deps (numpy/scipy/PIL) may be absent in some setups
     putt_analyze = None
 
 from . import db
+from .db import Club, Exercise, Session, Shot, User, get_async_session
 from .models import (
     ClubCreate,
     ClubUpdate,
@@ -28,306 +35,378 @@ from .models import (
     ExerciseUpdate,
     SessionCreate,
     ShotCreate,
-    UserCreate,
 )
+from .schemas import UserRead, UserUpdate
 from .stats import aggregate_stats, club_stats, session_stats
+from .users import auth_backend, current_active_user, fastapi_users, google_oauth_client
+from .users import SESSION_SECRET
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
-app = FastAPI(title="scratchlab")
 
-db.init_db()
-
-
-# ---------------------------------------------------------------- helpers
-def _user_dict(row) -> dict:
-    return {"id": row["id"], "name": row["name"], "created_at": row["created_at"]}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await db.create_db_and_tables()
+    await db.seed_defaults()
+    yield
 
 
-def _exercise_dict(row) -> dict:
+app = FastAPI(title="scratchlab", lifespan=lifespan)
+
+
+# ------------------------------------------------------------------ auth routes
+# Google OAuth: GET /api/auth/google/authorize -> {authorization_url};
+# GET /api/auth/google/callback -> sets cookie + 302 to "/".
+app.include_router(
+    fastapi_users.get_oauth_router(
+        google_oauth_client,
+        auth_backend,
+        SESSION_SECRET,
+        associate_by_email=True,
+        is_verified_by_default=True,
+    ),
+    prefix="/api/auth/google",
+    tags=["auth"],
+)
+# Cookie auth: POST /api/auth/cookie/logout (login-by-password unused for now).
+app.include_router(
+    fastapi_users.get_auth_router(auth_backend),
+    prefix="/api/auth/cookie",
+    tags=["auth"],
+)
+# User self-service: GET /api/users/me, PATCH /api/users/me.
+app.include_router(
+    fastapi_users.get_users_router(UserRead, UserUpdate),
+    prefix="/api/users",
+    tags=["users"],
+)
+
+
+# ---------------------------------------------------------------- serializers
+def _exercise_dict(e: Exercise) -> dict:
     return {
-        "id": row["id"],
-        "name": row["name"],
-        "category": row["category"],
-        "distance_cm": row["distance_cm"],
-        "distance_m": round(row["distance_cm"] / 100, 2),
-        "num_balls": row["num_balls"],
-        "is_default": bool(row["is_default"]),
-        "created_at": row["created_at"],
+        "id": e.id,
+        "name": e.name,
+        "category": e.category,
+        "distance_cm": e.distance_cm,
+        "distance_m": round(e.distance_cm / 100, 2),
+        "num_balls": e.num_balls,
+        "is_default": bool(e.is_default),
+        "created_at": e.created_at,
     }
 
 
-def _session_dict(row) -> dict:
-    results = json.loads(row["results_json"])
+def _session_dict(s: Session) -> dict:
+    results = json.loads(s.results_json)
     return {
-        "id": row["id"],
-        "user_id": row["user_id"],
-        "exercise_id": row["exercise_id"],
-        "played_at": row["played_at"],
+        "id": s.id,
+        "user_id": s.user_id,
+        "exercise_id": s.exercise_id,
+        "played_at": s.played_at,
         "results": results,
-        "note": row["note"],
+        "note": s.note,
         "stats": session_stats(results),
     }
 
 
-def _club_dict(row) -> dict:
+def _club_dict(c: Club) -> dict:
     return {
-        "id": row["id"],
-        "name": row["name"],
-        "abbr": row["abbr"],
-        "sort_order": row["sort_order"],
-        "is_default": bool(row["is_default"]),
-        "created_at": row["created_at"],
+        "id": c.id,
+        "name": c.name,
+        "abbr": c.abbr,
+        "sort_order": c.sort_order,
+        "is_default": bool(c.is_default),
+        "created_at": c.created_at,
     }
 
 
-def _shot_dict(row) -> dict:
+def _shot_dict(s: Shot) -> dict:
     return {
-        "id": row["id"],
-        "user_id": row["user_id"],
-        "club_id": row["club_id"],
-        "carry_m": row["carry_m"],
-        "drift_m": row["drift_m"],
-        "tags": json.loads(row["tags_json"]),
-        "note": row["note"],
-        "played_at": row["played_at"],
+        "id": s.id,
+        "user_id": s.user_id,
+        "club_id": s.club_id,
+        "carry_m": s.carry_m,
+        "drift_m": s.drift_m,
+        "tags": json.loads(s.tags_json),
+        "note": s.note,
+        "played_at": s.played_at,
     }
-
-
-# -------------------------------------------------------------------- users
-@app.get("/api/users")
-def list_users():
-    with db.get_conn() as conn:
-        rows = conn.execute("SELECT * FROM users ORDER BY id").fetchall()
-    return [_user_dict(r) for r in rows]
-
-
-@app.post("/api/users", status_code=201)
-def create_user(body: UserCreate):
-    with db.get_conn() as conn:
-        cur = conn.execute("INSERT INTO users (name) VALUES (?)", (body.name,))
-        row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return _user_dict(row)
-
-
-@app.delete("/api/users/{user_id}", status_code=204)
-def delete_user(user_id: int):
-    with db.get_conn() as conn:
-        remaining = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
-        if remaining <= 1:
-            raise HTTPException(400, "Cannot delete the last user")
-        cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        if cur.rowcount == 0:
-            raise HTTPException(404, "User not found")
-    return None
 
 
 # --------------------------------------------------------------- exercises
 @app.get("/api/exercises")
-def list_exercises():
-    with db.get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM exercises ORDER BY category, distance_cm, id"
-        ).fetchall()
-    return [_exercise_dict(r) for r in rows]
+async def list_exercises(
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = (
+        await session.scalars(
+            select(Exercise).order_by(Exercise.category, Exercise.distance_cm, Exercise.id)
+        )
+    ).all()
+    return [_exercise_dict(e) for e in rows]
 
 
 @app.post("/api/exercises", status_code=201)
-def create_exercise(body: ExerciseCreate):
-    with db.get_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO exercises (name, category, distance_cm, num_balls, is_default) "
-            "VALUES (?, ?, ?, ?, 0)",
-            (body.name, body.category, body.distance_cm, body.num_balls),
-        )
-        row = conn.execute(
-            "SELECT * FROM exercises WHERE id = ?", (cur.lastrowid,)
-        ).fetchone()
-    return _exercise_dict(row)
+async def create_exercise(
+    body: ExerciseCreate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    ex = Exercise(
+        name=body.name,
+        category=body.category,
+        distance_cm=body.distance_cm,
+        num_balls=body.num_balls,
+        is_default=False,
+    )
+    session.add(ex)
+    await session.commit()
+    await session.refresh(ex)
+    return _exercise_dict(ex)
 
 
 @app.patch("/api/exercises/{exercise_id}")
-def update_exercise(exercise_id: int, body: ExerciseUpdate):
+async def update_exercise(
+    exercise_id: int,
+    body: ExerciseUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    ex = await session.get(Exercise, exercise_id)
+    if ex is None:
+        raise HTTPException(404, "Exercise not found")
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(400, "No fields to update")
-    assignments = ", ".join(f"{k} = ?" for k in fields)
-    values = list(fields.values()) + [exercise_id]
-    with db.get_conn() as conn:
-        cur = conn.execute(
-            f"UPDATE exercises SET {assignments} WHERE id = ?", values
-        )
-        if cur.rowcount == 0:
-            raise HTTPException(404, "Exercise not found")
-        row = conn.execute(
-            "SELECT * FROM exercises WHERE id = ?", (exercise_id,)
-        ).fetchone()
-    return _exercise_dict(row)
+    for k, v in fields.items():
+        setattr(ex, k, v)
+    await session.commit()
+    await session.refresh(ex)
+    return _exercise_dict(ex)
 
 
 @app.delete("/api/exercises/{exercise_id}", status_code=204)
-def delete_exercise(exercise_id: int):
-    with db.get_conn() as conn:
-        cur = conn.execute("DELETE FROM exercises WHERE id = ?", (exercise_id,))
-        if cur.rowcount == 0:
-            raise HTTPException(404, "Exercise not found")
+async def delete_exercise(
+    exercise_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    ex = await session.get(Exercise, exercise_id)
+    if ex is None:
+        raise HTTPException(404, "Exercise not found")
+    await session.delete(ex)
+    await session.commit()
     return None
 
 
 # ---------------------------------------------------------------- sessions
 @app.post("/api/sessions", status_code=201)
-def create_session(body: SessionCreate):
-    with db.get_conn() as conn:
-        if conn.execute(
-            "SELECT 1 FROM users WHERE id = ?", (body.user_id,)
-        ).fetchone() is None:
-            raise HTTPException(404, "User not found")
-        if conn.execute(
-            "SELECT 1 FROM exercises WHERE id = ?", (body.exercise_id,)
-        ).fetchone() is None:
-            raise HTTPException(404, "Exercise not found")
-        if any(p < 1 for p in body.results):
-            raise HTTPException(400, "Each ball needs at least 1 putt")
-        cur = conn.execute(
-            "INSERT INTO sessions (user_id, exercise_id, results_json, note) "
-            "VALUES (?, ?, ?, ?)",
-            (body.user_id, body.exercise_id, json.dumps(body.results), body.note),
+async def create_session(
+    body: SessionCreate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    if await session.get(Exercise, body.exercise_id) is None:
+        raise HTTPException(404, "Exercise not found")
+    if any(p < 1 for p in body.results):
+        raise HTTPException(400, "Each ball needs at least 1 putt")
+    s = Session(
+        user_id=user.id,
+        exercise_id=body.exercise_id,
+        results_json=json.dumps(body.results),
+        note=body.note,
+    )
+    session.add(s)
+    await session.commit()
+    await session.refresh(s)
+    return _session_dict(s)
+
+
+async def _user_sessions(session: AsyncSession, user_id: int, exercise_id: int):
+    return (
+        await session.scalars(
+            select(Session)
+            .where(Session.exercise_id == exercise_id, Session.user_id == user_id)
+            .order_by(Session.played_at.desc(), Session.id.desc())
         )
-        row = conn.execute(
-            "SELECT * FROM sessions WHERE id = ?", (cur.lastrowid,)
-        ).fetchone()
-    return _session_dict(row)
+    ).all()
 
 
 @app.get("/api/sessions")
-def list_sessions(exercise_id: int, user_id: int):
-    with db.get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM sessions WHERE exercise_id = ? AND user_id = ? "
-            "ORDER BY played_at DESC, id DESC",
-            (exercise_id, user_id),
-        ).fetchall()
-    return [_session_dict(r) for r in rows]
+async def list_sessions(
+    exercise_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = await _user_sessions(session, user.id, exercise_id)
+    return [_session_dict(s) for s in rows]
 
 
 @app.delete("/api/sessions/{session_id}", status_code=204)
-def delete_session(session_id: int):
-    with db.get_conn() as conn:
-        cur = conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
-        if cur.rowcount == 0:
-            raise HTTPException(404, "Session not found")
+async def delete_session(
+    session_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    result = await session.execute(
+        delete(Session).where(Session.id == session_id, Session.user_id == user.id)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(404, "Session not found")
+    await session.commit()
     return None
 
 
 @app.get("/api/exercises/{exercise_id}/stats")
-def exercise_stats(exercise_id: int, user_id: int):
-    sessions = list_sessions(exercise_id, user_id)  # newest-first, each with 'stats'
-    return aggregate_stats(sessions)
+async def exercise_stats(
+    exercise_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = await _user_sessions(session, user.id, exercise_id)  # newest-first
+    return aggregate_stats([_session_dict(s) for s in rows])
 
 
 # ----------------------------------------------------------- range: clubs
 @app.get("/api/shot-tags")
-def shot_tags():
+async def shot_tags(user: User = Depends(current_active_user)):
     return db.DEFAULT_SHOT_TAGS
 
 
 @app.get("/api/clubs")
-def list_clubs():
-    with db.get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM clubs ORDER BY sort_order, id"
-        ).fetchall()
-    return [_club_dict(r) for r in rows]
+async def list_clubs(
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = (
+        await session.scalars(select(Club).order_by(Club.sort_order, Club.id))
+    ).all()
+    return [_club_dict(c) for c in rows]
 
 
 @app.post("/api/clubs", status_code=201)
-def create_club(body: ClubCreate):
-    with db.get_conn() as conn:
-        cur = conn.execute(
-            "INSERT INTO clubs (name, abbr, sort_order, is_default) VALUES (?, ?, ?, 0)",
-            (body.name, body.abbr, body.sort_order),
-        )
-        row = conn.execute("SELECT * FROM clubs WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return _club_dict(row)
+async def create_club(
+    body: ClubCreate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    c = Club(name=body.name, abbr=body.abbr, sort_order=body.sort_order, is_default=False)
+    session.add(c)
+    await session.commit()
+    await session.refresh(c)
+    return _club_dict(c)
 
 
 @app.patch("/api/clubs/{club_id}")
-def update_club(club_id: int, body: ClubUpdate):
+async def update_club(
+    club_id: int,
+    body: ClubUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    c = await session.get(Club, club_id)
+    if c is None:
+        raise HTTPException(404, "Club not found")
     fields = body.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(400, "No fields to update")
-    assignments = ", ".join(f"{k} = ?" for k in fields)
-    values = list(fields.values()) + [club_id]
-    with db.get_conn() as conn:
-        cur = conn.execute(f"UPDATE clubs SET {assignments} WHERE id = ?", values)
-        if cur.rowcount == 0:
-            raise HTTPException(404, "Club not found")
-        row = conn.execute("SELECT * FROM clubs WHERE id = ?", (club_id,)).fetchone()
-    return _club_dict(row)
+    for k, v in fields.items():
+        setattr(c, k, v)
+    await session.commit()
+    await session.refresh(c)
+    return _club_dict(c)
 
 
 @app.delete("/api/clubs/{club_id}", status_code=204)
-def delete_club(club_id: int):
-    with db.get_conn() as conn:
-        cur = conn.execute("DELETE FROM clubs WHERE id = ?", (club_id,))
-        if cur.rowcount == 0:
-            raise HTTPException(404, "Club not found")
+async def delete_club(
+    club_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    c = await session.get(Club, club_id)
+    if c is None:
+        raise HTTPException(404, "Club not found")
+    await session.delete(c)
+    await session.commit()
     return None
 
 
 # ------------------------------------------------------------- range: shots
 @app.post("/api/shots", status_code=201)
-def create_shot(body: ShotCreate):
-    with db.get_conn() as conn:
-        if conn.execute("SELECT 1 FROM users WHERE id = ?", (body.user_id,)).fetchone() is None:
-            raise HTTPException(404, "User not found")
-        if conn.execute("SELECT 1 FROM clubs WHERE id = ?", (body.club_id,)).fetchone() is None:
-            raise HTTPException(404, "Club not found")
-        cur = conn.execute(
-            "INSERT INTO shots (user_id, club_id, carry_m, drift_m, tags_json, note) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (
-                body.user_id,
-                body.club_id,
-                body.carry_m,
-                body.drift_m,
-                json.dumps(body.tags),
-                body.note,
-            ),
+async def create_shot(
+    body: ShotCreate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    if await session.get(Club, body.club_id) is None:
+        raise HTTPException(404, "Club not found")
+    s = Shot(
+        user_id=user.id,
+        club_id=body.club_id,
+        carry_m=body.carry_m,
+        drift_m=body.drift_m,
+        tags_json=json.dumps(body.tags),
+        note=body.note,
+    )
+    session.add(s)
+    await session.commit()
+    await session.refresh(s)
+    return _shot_dict(s)
+
+
+async def _user_shots(session: AsyncSession, user_id: int, club_id: int):
+    return (
+        await session.scalars(
+            select(Shot)
+            .where(Shot.club_id == club_id, Shot.user_id == user_id)
+            .order_by(Shot.played_at.desc(), Shot.id.desc())
         )
-        row = conn.execute("SELECT * FROM shots WHERE id = ?", (cur.lastrowid,)).fetchone()
-    return _shot_dict(row)
+    ).all()
 
 
 @app.get("/api/shots")
-def list_shots(club_id: int, user_id: int):
-    with db.get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM shots WHERE club_id = ? AND user_id = ? "
-            "ORDER BY played_at DESC, id DESC",
-            (club_id, user_id),
-        ).fetchall()
-    return [_shot_dict(r) for r in rows]
+async def list_shots(
+    club_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = await _user_shots(session, user.id, club_id)
+    return [_shot_dict(s) for s in rows]
 
 
 @app.delete("/api/shots/{shot_id}", status_code=204)
-def delete_shot(shot_id: int):
-    with db.get_conn() as conn:
-        cur = conn.execute("DELETE FROM shots WHERE id = ?", (shot_id,))
-        if cur.rowcount == 0:
-            raise HTTPException(404, "Shot not found")
+async def delete_shot(
+    shot_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    result = await session.execute(
+        delete(Shot).where(Shot.id == shot_id, Shot.user_id == user.id)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(404, "Shot not found")
+    await session.commit()
     return None
 
 
 @app.get("/api/clubs/{club_id}/stats")
-def club_statistics(club_id: int, user_id: int):
-    shots = list_shots(club_id, user_id)  # newest-first
-    return club_stats(shots)
+async def club_statistics(
+    club_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = await _user_shots(session, user.id, club_id)  # newest-first
+    return club_stats([_shot_dict(s) for s in rows])
 
 
 # ------------------------------------------------------- green photo analysis
 @app.post("/api/analyze-putt")
-async def analyze_putt(photo: UploadFile = File(...), putter_inch: int = 34):
+async def analyze_putt(
+    photo: UploadFile = File(...),
+    putter_inch: int = 34,
+    user: User = Depends(current_active_user),
+):
     """Analyse a putting-green photo: detect hole/putter/balls and report the
     dispersion relative to the putter→hole line. Uses the Claude VLM + CV."""
     if putt_analyze is None:

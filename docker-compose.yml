@@ -25,7 +25,13 @@ services:
     ports:
       - "8080:8000"
     environment:
-      - DATABASE_URL=postgresql://worktracker:worktracker@db:5432/worktracker
+      - DATABASE_URL=postgresql+asyncpg://worktracker:worktracker@db:5432/worktracker
+      # Google SSO (from .env). fastapi-users derives the callback URL per request,
+      # so no redirect-uri env is needed; Google console must allow
+      # http://localhost:8080/api/auth/google/callback for local dev.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - SESSION_SECRET=${SESSION_SECRET:-}
       # Needed for /api/analyze-putt (Claude VLM). Set in your shell or a .env file.
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     restart: unless-stopped

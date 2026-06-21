@@ -1,92 +1,138 @@
-"""PostgreSQL persistence layer for the golf training app.
+"""Async SQLAlchemy 2.0 persistence layer for the golf training app.
 
-Uses psycopg 3. A thin connection wrapper keeps the call sites in app.py
-unchanged: it translates the historical ``?`` placeholders to ``%s`` and
-exposes ``cursor.lastrowid`` (via ``RETURNING id``) plus ``fetchone/fetchall/
-rowcount`` like the previous sqlite3 layer.
+Uses asyncpg via SQLAlchemy's async engine. The ORM models below back both the
+domain tables and the fastapi-users auth tables (users + oauth_accounts).
 
-Timestamps are stored as TEXT in UTC ("YYYY-MM-DD HH:MM:SS") so the JSON API
-contract (frontend does ``new Date(value + "Z")``) is preserved verbatim.
+Timestamps (played_at / created_at) are stored as TEXT in UTC
+("YYYY-MM-DD HH:MM:SS") so the JSON API contract is preserved verbatim:
+the frontend does ``new Date(value + "Z")`` and stats.py does ``played_at[:10]``.
+The server default is computed in Postgres via to_char(now() AT TIME ZONE 'UTC').
 
 Configure with DATABASE_URL, e.g.
-    postgresql://worktracker:worktracker@localhost:5432/worktracker
+    postgresql+asyncpg://worktracker:worktracker@localhost:5432/worktracker
 
 Data model:
-  users      — lightweight profiles (no auth)
-  exercises  — shared training catalogue (default + custom)
-  sessions   — one recorded attempt of an exercise, belongs to a user
-  clubs      — driving-range club catalogue
-  shots      — one driving-range shot
+  users          — authenticated accounts (fastapi-users)
+  oauth_accounts — linked OAuth identities (fastapi-users)
+  exercises      — shared training catalogue (GLOBAL: default + custom)
+  sessions       — one recorded attempt of an exercise, belongs to a user
+  clubs          — driving-range club catalogue (GLOBAL)
+  shots          — one driving-range shot, belongs to a user
 """
+import asyncio
 import os
-import time
 
-import psycopg
-from psycopg.rows import dict_row
+import asyncpg
+from fastapi import Depends
+from fastapi_users.db import SQLAlchemyBaseOAuthAccountTable, SQLAlchemyBaseUserTable, SQLAlchemyUserDatabase
+from sqlalchemy import ForeignKey, Integer, String, Text, Boolean, Float, func, select, text
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column, relationship
 
 DATABASE_URL = os.environ.get(
-    "DATABASE_URL", "postgresql://worktracker:worktracker@localhost:5432/worktracker"
+    "DATABASE_URL",
+    "postgresql+asyncpg://worktracker:worktracker@localhost:5432/worktracker",
 )
 
-# UTC, second precision, no timezone suffix — matches the old sqlite format.
-_TS_DEFAULT = "to_char((now() AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS')"
+# UTC, second precision, no timezone suffix — matches the historical TEXT format.
+_TS_DEFAULT = text("to_char((now() AT TIME ZONE 'UTC'), 'YYYY-MM-DD HH24:MI:SS')")
 
-SCHEMA = f"""
-CREATE TABLE IF NOT EXISTS users (
-    id         SERIAL PRIMARY KEY,
-    name       TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT {_TS_DEFAULT}
-);
 
-CREATE TABLE IF NOT EXISTS exercises (
-    id          SERIAL PRIMARY KEY,
-    name        TEXT    NOT NULL,
-    category    TEXT    NOT NULL DEFAULT 'putting',
-    distance_cm INTEGER NOT NULL,
-    num_balls   INTEGER NOT NULL DEFAULT 10,
-    is_default  INTEGER NOT NULL DEFAULT 0,
-    created_at  TEXT    NOT NULL DEFAULT {_TS_DEFAULT}
-);
+class Base(DeclarativeBase):
+    pass
 
-CREATE TABLE IF NOT EXISTS sessions (
-    id           SERIAL PRIMARY KEY,
-    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    exercise_id  INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
-    played_at    TEXT    NOT NULL DEFAULT {_TS_DEFAULT},
-    results_json TEXT    NOT NULL,
-    note         TEXT
-);
 
-CREATE TABLE IF NOT EXISTS clubs (
-    id         SERIAL PRIMARY KEY,
-    name       TEXT    NOT NULL,
-    abbr       TEXT    NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 100,
-    is_default INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT    NOT NULL DEFAULT {_TS_DEFAULT}
-);
+# ---------------------------------------------------------------- auth tables
+class OAuthAccount(SQLAlchemyBaseOAuthAccountTable[int], Base):
+    __tablename__ = "oauth_accounts"
 
--- One driving-range shot. drift_m is signed: negative = left, positive = right.
-CREATE TABLE IF NOT EXISTS shots (
-    id         SERIAL PRIMARY KEY,
-    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    club_id    INTEGER NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
-    carry_m    DOUBLE PRECISION NOT NULL,
-    drift_m    DOUBLE PRECISION NOT NULL DEFAULT 0,
-    tags_json  TEXT NOT NULL DEFAULT '[]',
-    note       TEXT,
-    played_at  TEXT NOT NULL DEFAULT {_TS_DEFAULT}
-);
-"""
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
 
+    # Base class defaults the FK to "user.id"; our user table is "users".
+    @declared_attr
+    def user_id(cls) -> Mapped[int]:
+        return mapped_column(
+            Integer, ForeignKey("users.id", ondelete="cascade"), nullable=False
+        )
+
+
+class User(SQLAlchemyBaseUserTable[int], Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    oauth_accounts: Mapped[list[OAuthAccount]] = relationship(
+        "OAuthAccount", lazy="joined"
+    )
+
+
+# -------------------------------------------------------------- domain tables
+class Exercise(Base):
+    __tablename__ = "exercises"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(Text, nullable=False, default="putting")
+    distance_cm: Mapped[int] = mapped_column(Integer, nullable=False)
+    num_balls: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
+
+
+class Club(Base):
+    __tablename__ = "clubs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    abbr: Mapped[str] = mapped_column(Text, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
+
+
+class Session(Base):
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    exercise_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False
+    )
+    results_json: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
+
+
+class Shot(Base):
+    __tablename__ = "shots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    club_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("clubs.id", ondelete="CASCADE"), nullable=False
+    )
+    carry_m: Mapped[float] = mapped_column(Float, nullable=False)
+    drift_m: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    tags_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]", server_default="[]")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
+
+
+# ----------------------------------------------------------------- defaults
 # (name, category, distance_cm, num_balls)
 DEFAULT_EXERCISES = [
     ("Putten 1m", "putting", 100, 10),
     ("Putten 2m", "putting", 200, 10),
     ("Putten 3m", "putting", 300, 10),
 ]
-
-DEFAULT_USER = "Spieler 1"
 
 # (name, abbr, sort_order)
 DEFAULT_CLUBS = [
@@ -108,101 +154,65 @@ DEFAULT_SHOT_TAGS = [
 ]
 
 
-# --------------------------------------------------------------- compat layer
-class _Cursor:
-    """Mimics the sqlite3 cursor surface used across app.py."""
-
-    def __init__(self, cur, lastrowid=None):
-        self._cur = cur
-        self.lastrowid = lastrowid
-        self.rowcount = cur.rowcount
-
-    def fetchone(self):
-        return self._cur.fetchone()
-
-    def fetchall(self):
-        return self._cur.fetchall()
+# ------------------------------------------------------------------ engine
+engine = create_async_engine(DATABASE_URL)
+async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
 
 
-class _Connection:
-    """psycopg connection wrapper that accepts ``?`` placeholders and provides
-    ``lastrowid`` for INSERTs (auto-appends ``RETURNING id``)."""
-
-    def __init__(self, conn):
-        self._conn = conn
-
-    def execute(self, sql, params=()):
-        q = sql.replace("?", "%s")
-        is_insert = q.lstrip()[:6].lower() == "insert"
-        lastrowid = None
-        if is_insert and "returning" not in q.lower():
-            q = q.rstrip().rstrip(";") + " RETURNING id"
-        cur = self._conn.execute(q, tuple(params))
-        if is_insert:
-            row = cur.fetchone()
-            lastrowid = row["id"] if row else None
-        return _Cursor(cur, lastrowid)
-
-    def executemany(self, sql, seq):
-        cur = self._conn.cursor()
-        cur.executemany(sql.replace("?", "%s"), [tuple(p) for p in seq])
-        return _Cursor(cur)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc, tb):
-        if exc_type is None:
-            self._conn.commit()
-        else:
-            self._conn.rollback()
-        self._conn.close()
-        return False
+async def get_async_session():
+    async with async_session_maker() as session:
+        yield session
 
 
-def get_conn() -> _Connection:
-    return _Connection(psycopg.connect(DATABASE_URL, row_factory=dict_row))
+async def get_user_db(session: AsyncSession = Depends(get_async_session)):
+    yield SQLAlchemyUserDatabase(session, User, OAuthAccount)
 
 
 # ------------------------------------------------------------------ lifecycle
-def init_db(retries: int = 30, delay: float = 1.0) -> None:
-    """Create tables and seed defaults. Retries the initial connect so the app
-    can start before Postgres is ready (k8s / compose ordering)."""
-    last_err = None
+async def create_db_and_tables(retries: int = 30, delay: float = 1.0) -> None:
+    """Create all tables. Retries the initial connect so the app can start
+    before Postgres is ready (k8s / compose ordering)."""
+    last_err: Exception | None = None
     for _ in range(retries):
         try:
-            with get_conn() as conn:
-                for stmt in SCHEMA.split(";"):
-                    if stmt.strip():
-                        conn.execute(stmt)
-            break
-        except psycopg.OperationalError as err:  # DB not up yet
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            return
+        except (OSError, OperationalError, asyncpg.PostgresError) as err:  # DB not up yet
             last_err = err
-            time.sleep(delay)
-    else:
-        raise RuntimeError(f"Datenbank nicht erreichbar: {last_err}")
-    seed_defaults()
+            await asyncio.sleep(delay)
+    raise RuntimeError(f"Datenbank nicht erreichbar: {last_err}")
 
 
-def seed_defaults() -> None:
-    """Ensure a default user, default exercises, and default clubs exist."""
-    with get_conn() as conn:
-        if conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"] == 0:
-            conn.execute("INSERT INTO users (name) VALUES (?)", (DEFAULT_USER,))
+async def seed_defaults() -> None:
+    """Ensure the GLOBAL default exercises and clubs exist.
 
-        if conn.execute(
-            "SELECT COUNT(*) AS c FROM exercises WHERE is_default = 1"
-        ).fetchone()["c"] == 0:
-            conn.executemany(
-                "INSERT INTO exercises (name, category, distance_cm, num_balls, is_default) "
-                "VALUES (?, ?, ?, ?, 1)",
-                DEFAULT_EXERCISES,
+    Clubs/exercises are global; users come from Google login, so no default
+    user is created here.
+    """
+    async with async_session_maker() as session:
+        have_ex = await session.scalar(
+            select(func.count()).select_from(Exercise).where(Exercise.is_default.is_(True))
+        )
+        if not have_ex:
+            session.add_all(
+                Exercise(
+                    name=name,
+                    category=category,
+                    distance_cm=distance_cm,
+                    num_balls=num_balls,
+                    is_default=True,
+                )
+                for name, category, distance_cm, num_balls in DEFAULT_EXERCISES
             )
 
-        if conn.execute(
-            "SELECT COUNT(*) AS c FROM clubs WHERE is_default = 1"
-        ).fetchone()["c"] == 0:
-            conn.executemany(
-                "INSERT INTO clubs (name, abbr, sort_order, is_default) VALUES (?, ?, ?, 1)",
-                DEFAULT_CLUBS,
+        have_clubs = await session.scalar(
+            select(func.count()).select_from(Club).where(Club.is_default.is_(True))
+        )
+        if not have_clubs:
+            session.add_all(
+                Club(name=name, abbr=abbr, sort_order=sort_order, is_default=True)
+                for name, abbr, sort_order in DEFAULT_CLUBS
             )
+
+        await session.commit()

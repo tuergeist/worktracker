@@ -9,7 +9,23 @@
 </head>
 <body>
 
-<div id="app">
+<!-- ── Login screen (shown until authenticated) ─────────────── -->
+<section id="view-login" hidden>
+  <div class="login-card">
+    <svg class="login-logo" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M6 2.75a1.05 1.05 0 0 1 1.05 1.05V21a1.05 1.05 0 0 1-2.1 0V3.8A1.05 1.05 0 0 1 6 2.75Z" fill="#1b5e20"/>
+      <path d="M7.6 4.1l10.2 2.94a.7.7 0 0 1 .02 1.34L7.6 11.6V4.1Z" fill="#2e7d32"/>
+    </svg>
+    <h1 class="login-title">scratchlab</h1>
+    <p class="login-sub">Dein Golf-Trainingstagebuch</p>
+    <button id="login-google" class="btn-primary login-btn" type="button">
+      Mit Google anmelden
+    </button>
+    <p id="login-error" class="login-error" hidden>Login fehlgeschlagen. Bitte erneut versuchen.</p>
+  </div>
+</section>
+
+<div id="app" hidden>
 
   <!-- ── App header ───────────────────────────────────────── -->
   <header class="app-header">

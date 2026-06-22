@@ -874,19 +874,24 @@ html, body {
 }
 .intro-logo { width: 56px; height: 56px; }
 .intro-title {
-  margin: 4px 0 18px;
+  margin: 4px 0 2px;
   font-size: 24px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.3px;
+}
+.intro-lead {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--text-muted);
 }
 .intro-rows {
   list-style: none;
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 26px;
+  gap: 10px;
+  margin: 0 0 14px;
 }
 .intro-row {
   display: flex;
@@ -907,11 +912,59 @@ html, body {
 }
 .intro-row__icon svg { width: 22px; height: 22px; }
 .intro-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.intro-row__text strong {
   font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.intro-row__desc {
+  font-size: 13px;
   line-height: 1.35;
   color: var(--text-muted);
 }
-.intro-row__text strong { color: var(--text-primary); font-weight: 600; }
+
+/* Green-Foto: the explanation-worthy feature gets a highlighted sub-card. */
+.intro-feature {
+  display: flex;
+  gap: 14px;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 24px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  background: var(--primary-light);
+}
+.intro-feature__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.intro-feature__icon svg { width: 22px; height: 22px; }
+.intro-feature__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.intro-feature__text strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+.intro-feature__desc {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
 .intro-btn { width: 100%; }
 
 @keyframes intro-rise {

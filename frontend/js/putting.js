@@ -370,12 +370,38 @@ function photoResult(html) {
   res.hidden = false;
 }
 
+// Phone cameras (e.g. Pixel 8, ~12 MP) produce multi-MB photos that blow past
+// upload/body limits and slow analysis. Downscale client-side to a sane edge
+// (still plenty for ball/cup detection), honouring EXIF orientation.
+async function downscaleImage(file, maxEdge = 2600, quality = 0.85) {
+  if (!("createImageBitmap" in window)) return file; // very old browser → send as-is
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  } catch (_) {
+    return file; // unsupported (e.g. HEIC) → let the server try the original
+  }
+  const { width, height } = bitmap;
+  const scale = Math.min(1, maxEdge / Math.max(width, height));
+  if (scale === 1) { bitmap.close?.(); return file; } // already small enough
+  const w = Math.round(width * scale);
+  const h = Math.round(height * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+  bitmap.close?.();
+  const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", quality));
+  return blob || file;
+}
+
 async function analyzePhoto(file) {
   haptic("light");
   photoResult(`<div class="analyze-loading"><div class="spinner"></div><p>Foto wird ausgewertet …</p></div>`);
   try {
+    const upload = await downscaleImage(file);
     const fd = new FormData();
-    fd.append("photo", file);
+    fd.append("photo", upload, "green.jpg");
     const r = await fetch("/api/analyze-putt", { method: "POST", body: fd });
     if (!r.ok) throw new Error(await r.text());
     showAnalysis(await r.json());

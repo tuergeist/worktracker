@@ -1,0 +1,30 @@
+# Example ingress for scratchlab.app (nginx-ingress + cert-manager).
+# Copy to ingress.yaml, adjust host/issuer, apply.
+#
+# IMPORTANT: phone-camera photos (Pixel 8 etc.) are several MB. The default
+# nginx body limit is 1m and rejects them with 413. The annotation below raises
+# it. The frontend also downscales before upload, but keep headroom.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: worktracker
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [scratchlab.app]
+      secretName: scratchlab-tls
+  rules:
+    - host: scratchlab.app
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: worktracker
+                port:
+                  number: 80

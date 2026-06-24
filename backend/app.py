@@ -39,7 +39,10 @@ from .models import (
 from .schemas import UserRead, UserUpdate
 from .stats import aggregate_stats, club_stats, session_stats
 from .users import auth_backend, current_active_user, fastapi_users, google_oauth_client
-from .users import SESSION_SECRET
+from .users import SESSION_SECRET, get_jwt_strategy
+
+# Dev-only password-less login for local/automated testing. Never enable in prod.
+DEV_LOGIN = os.environ.get("DEV_LOGIN", "").lower() in ("1", "true", "yes")
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
@@ -469,6 +472,30 @@ async def analyze_putt(
             ],
         })
     return payload
+
+
+# ------------------------------------------------------------- dev login
+@app.get("/api/auth/dev-login")
+async def dev_login(session: AsyncSession = Depends(get_async_session)):
+    """Password-less login for local dev / automated tests. Gated by DEV_LOGIN;
+    returns 404 unless explicitly enabled (never set in production)."""
+    if not DEV_LOGIN:
+        raise HTTPException(404, "Not found")
+    user = (
+        await session.scalars(select(User).where(User.email == "dev@scratchlab.app"))
+    ).first()
+    if user is None:
+        user = User(
+            email="dev@scratchlab.app",
+            hashed_password="!dev",  # unusable password; dev login is cookie-only
+            is_active=True,
+            is_verified=True,
+        )
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    # Reuse the cookie backend → sets the auth cookie + 302 redirect to "/".
+    return await auth_backend.login(get_jwt_strategy(), user)
 
 
 # ----------------------------------------------------------------- static

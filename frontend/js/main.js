@@ -1,18 +1,21 @@
 "use strict";
 
 import { initAuth } from "./auth.js";
-import { openSettings } from "./users.js";
+import { showSettings } from "./users.js";
 import { initPutting } from "./putting.js";
 import { initRange } from "./range.js";
 import { maybeShowIntro } from "./intro.js";
 
 const LS_TAB = "wt.tab";
 
-// View ids per tab. Index 0 = record view, index 1 = stats view.
+// Each bottom tab maps to exactly one view.
 const VIEWS = {
-  putten: ["view-putten-record", "view-putten-stats"],
-  range:  ["view-range-record", "view-range-stats"],
+  putten: "view-putten-record",
+  range:  "view-range-record",
+  stats:  "view-stats",
 };
+
+let lastTab = "putten"; // remembers where the gear's "← Zurück" returns to
 
 function setView(id) {
   document.querySelectorAll("#main .view").forEach((v) => {
@@ -20,14 +23,16 @@ function setView(id) {
   });
 }
 
-// Switch tabs: always land on the record view of the chosen tab.
+// Switch tabs and show the matching view.
 function activateTab(name) {
   if (!VIEWS[name]) name = "putten";
+  lastTab = name;
   document.querySelectorAll(".tab-item").forEach((t) =>
     t.classList.toggle("tab-item--active", t.dataset.tab === name)
   );
-  setView(VIEWS[name][0]);
+  setView(VIEWS[name]);
   localStorage.setItem(LS_TAB, name);
+  if (name === "stats") renderActiveSegment();
 }
 
 function wireTabs() {
@@ -36,26 +41,39 @@ function wireTabs() {
   });
 }
 
-// Stats navigation: toggle record <-> stats views and let the topic module
-// render its data via an optional global callback it registers.
-function wireStatsNav() {
-  document.getElementById("putten-stats-link").onclick = () => {
-    setView("view-putten-stats");
-    window.__renderPuttenStats?.();
-  };
-  document.getElementById("putten-stats-back").onclick = () =>
-    setView("view-putten-record");
+// ── Statistik tab: segmented control toggles Putten / Range panes ──────────
+let statsSeg = "putten";
 
-  document.getElementById("range-stats-link").onclick = () => {
-    setView("view-range-stats");
-    window.__renderRangeStats?.();
-  };
-  document.getElementById("range-stats-back").onclick = () =>
-    setView("view-range-record");
+function renderActiveSegment() {
+  if (statsSeg === "range") window.__renderRangeStats?.();
+  else window.__renderPuttenStats?.();
 }
 
+function setSegment(seg) {
+  statsSeg = seg === "range" ? "range" : "putten";
+  document.querySelectorAll(".seg-control__btn").forEach((b) => {
+    const on = b.dataset.seg === statsSeg;
+    b.classList.toggle("seg-control__btn--active", on);
+    b.setAttribute("aria-selected", String(on));
+  });
+  document.getElementById("stats-pane-putten").hidden = statsSeg !== "putten";
+  document.getElementById("stats-pane-range").hidden = statsSeg !== "range";
+  renderActiveSegment();
+}
+
+function wireStatsSegments() {
+  document.querySelectorAll(".seg-control__btn").forEach((b) => {
+    b.onclick = () => setSegment(b.dataset.seg);
+  });
+}
+
+// ── Settings page (reached via the header gear) ────────────────────────────
 function wireSettings() {
-  document.getElementById("settings-btn").onclick = () => openSettings();
+  document.getElementById("settings-btn").onclick = () => {
+    showSettings();
+    setView("view-settings");
+  };
+  document.getElementById("settings-back").onclick = () => activateTab(lastTab);
 }
 
 (async function init() {
@@ -64,14 +82,14 @@ function wireSettings() {
   if (!ok) return;
 
   wireTabs();
-  wireStatsNav();
+  wireStatsSegments();
   wireSettings();
 
   initPutting();
   await initRange();
 
   const last = localStorage.getItem(LS_TAB);
-  activateTab(last === "range" ? "range" : "putten");
+  activateTab(VIEWS[last] ? last : "putten");
 
   maybeShowIntro();
 })();

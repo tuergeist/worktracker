@@ -12,6 +12,7 @@ const local = {
   selected: null,
   dist: { "1": 0, "2": 0, "3": 0, "4+": 0 },
   lastBucket: null, // most recently incremented bucket (for --active)
+  step: 1, // guided flow: 1 Spielen · 2 Foto · 3 Zählen (in-memory only)
 };
 
 function $(id) { return document.getElementById(id); }
@@ -23,6 +24,38 @@ function resetDist() {
 
 function assigned() {
   return BUCKETS.reduce((s, b) => s + local.dist[b], 0);
+}
+
+// ----------------------------------------------------------- guided steps
+function goStep(n) {
+  local.step = n;
+  $("putten-step-play").hidden = n !== 1;
+  $("putten-step-photo").hidden = n !== 2;
+  $("putten-step-count").hidden = n !== 3;
+
+  document.querySelectorAll(".step-dot").forEach((dot) => {
+    const s = parseInt(dot.dataset.step, 10);
+    dot.classList.toggle("step-dot--active", s === n);
+    dot.classList.toggle("step-dot--done", s < n);
+  });
+
+  if (n === 1) renderPlayStep();
+  if (n === 2) resetPhotoStep();
+  if (n === 3) renderGrid();
+}
+
+function renderPlayStep() {
+  const el = $("putten-play-text");
+  if (!local.selected) { el.textContent = "Wähle zuerst eine Übung."; return; }
+  el.innerHTML = `Spiel deine <b>${local.selected.num_balls} Bälle</b> aufs Loch.`;
+}
+
+// reset step ② to its capture prompt (clears any prior analysis)
+function resetPhotoStep() {
+  $("putten-photo-intro").hidden = false;
+  const res = $("putten-photo-result");
+  res.hidden = true;
+  res.innerHTML = "";
 }
 
 // short date like "18.06.26"
@@ -50,23 +83,25 @@ async function loadExercises() {
     local.selected = local.exercises.find((e) => e.id === local.selected.id);
   }
   renderPickerLabel();
-  renderGrid();
+  goStep(1);
 }
 
 function renderPickerLabel() {
-  const label = $("putten-picker-label");
-  if (!local.selected) {
-    label.textContent = "Keine Übung";
-    return;
-  }
-  label.textContent = `${local.selected.name} · ${local.selected.num_balls} Bälle`;
+  const text = local.selected
+    ? `${local.selected.name} · ${local.selected.num_balls} Bälle`
+    : "Keine Übung";
+  // Record view chip + Statistik tab chip share the same selection.
+  const a = $("putten-picker-label");
+  const b = $("stats-putten-picker-label");
+  if (a) a.textContent = text;
+  if (b) b.textContent = text;
 }
 
 function selectExercise(ex) {
   local.selected = ex;
   resetDist();
   renderPickerLabel();
-  renderGrid();
+  goStep(1); // changing exercise restarts the flow
   loadStats();
 }
 
@@ -142,6 +177,7 @@ function updateSaveBtn() {
 }
 
 // ----------------------------------------------------------- exercise picker
+// Reused by both the record-view chip and the Statistik tab chip.
 function openPicker() {
   const rows = local.exercises.map((ex) => {
     const current = local.selected && ex.id === local.selected.id;
@@ -237,7 +273,7 @@ async function saveSession() {
 
   haptic("success");
   resetDist();
-  renderGrid();
+  goStep(1); // ready for the next round
   loadStats();
 }
 
@@ -263,6 +299,14 @@ async function renderStats() {
   const ex = local.selected.id;
   const stats = await api.get(`/api/exercises/${ex}/stats`);
   const sessions = await api.get(`/api/sessions?exercise_id=${ex}`);
+
+  // no sessions yet → clean empty state, no "null" cards
+  if (!stats.sessions) {
+    cards.innerHTML = "";
+    chart.innerHTML = "";
+    hist.innerHTML = `<div class="empty">Noch keine Sessions — leg los! 🏌️</div>`;
+    return;
+  }
 
   // cards
   cards.innerHTML = [
@@ -317,12 +361,18 @@ function initPhoto() {
   };
 }
 
+// Render analysis (or loading/error) inline into step ②; result is shown for
+// insight only and is NOT persisted.
+function photoResult(html) {
+  $("putten-photo-intro").hidden = true;
+  const res = $("putten-photo-result");
+  res.innerHTML = html;
+  res.hidden = false;
+}
+
 async function analyzePhoto(file) {
   haptic("light");
-  openSheet({
-    title: "Green-Analyse",
-    bodyHtml: `<div class="analyze-loading"><div class="spinner"></div><p>Foto wird ausgewertet …</p></div>`,
-  });
+  photoResult(`<div class="analyze-loading"><div class="spinner"></div><p>Foto wird ausgewertet …</p></div>`);
   try {
     const fd = new FormData();
     fd.append("photo", file);
@@ -333,11 +383,11 @@ async function analyzePhoto(file) {
   } catch (e) {
     let msg = String(e.message || e);
     try { msg = JSON.parse(msg).detail || msg; } catch (_) { /* keep raw */ }
-    openSheet({
-      title: "Green-Analyse",
-      bodyHtml: `<p class="analyze-error">Analyse fehlgeschlagen.</p>
-                 <p class="analyze-error__detail">${escapeHtml(msg)}</p>`,
-    });
+    photoResult(`<p class="analyze-error">Analyse fehlgeschlagen.</p>
+                 <p class="analyze-error__detail">${escapeHtml(msg)}</p>
+                 <button id="putten-photo-retry" class="photo-btn" type="button">📷 Erneut versuchen</button>`);
+    const retry = $("putten-photo-retry");
+    if (retry) retry.onclick = () => resetPhotoStep();
     haptic("warning");
   }
 }
@@ -362,14 +412,22 @@ function showAnalysis(d) {
     body += `<div class="analyze-line analyze-line--muted">${d.within}/${d.total} innerhalb ${d.radius_m} m (keine Putterachse erkannt)</div>`;
   }
   body += `</div>`;
-  openSheet({ title: "Green-Analyse", bodyHtml: body });
+  photoResult(body);
 }
 
 // ----------------------------------------------------------- init
 export function initPutting() {
   $("putten-picker").onclick = () => openPicker();
+  $("stats-putten-picker").onclick = () => openPicker();
   $("putten-save").onclick = () => saveSession();
   initPhoto();
+
+  // guided 3-step navigation
+  $("putten-play-next").onclick = () => { haptic("light"); goStep(2); };
+  $("putten-photo-back").onclick = () => { haptic("light"); goStep(1); };
+  $("putten-photo-skip").onclick = () => { haptic("light"); goStep(3); };
+  $("putten-photo-next").onclick = () => { haptic("light"); goStep(3); };
+  $("putten-count-back").onclick = () => { haptic("light"); goStep(2); };
 
   // main.js drives stats navigation; we just (re)render into the containers.
   window.__renderPuttenStats = () => renderStats();

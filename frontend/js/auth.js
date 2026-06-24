@@ -38,6 +38,13 @@ async function startGoogleLogin() {
 function wireLogin() {
   const btn = document.getElementById("login-google");
   if (btn) btn.onclick = () => startGoogleLogin();
+
+  // Dev-only password-less login, shown on localhost (backend gates it too).
+  const dev = document.getElementById("login-dev");
+  if (dev && /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+    dev.hidden = false;
+    dev.onclick = () => { window.location.href = "/api/auth/dev-login"; };
+  }
 }
 
 // Run before the rest of the app boots. Returns true when authenticated.

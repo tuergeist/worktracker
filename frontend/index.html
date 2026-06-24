@@ -22,6 +22,7 @@
       Mit Google anmelden
     </button>
     <p id="login-error" class="login-error" hidden>Login fehlgeschlagen. Bitte erneut versuchen.</p>
+    <button id="login-dev" class="link-secondary" type="button" hidden>Dev-Login (localhost)</button>
   </div>
 </section>
 
@@ -56,32 +57,53 @@
         </button>
       </div>
 
-      <div class="record-body">
-        <div id="putten-grid" class="counter-grid"></div>
-        <div id="putten-progress" class="progress-row"></div>
-        <button id="putten-photo" class="photo-btn" type="button">📷 Green-Foto auswerten</button>
-        <input id="putten-photo-input" type="file" accept="image/*" capture="environment" hidden />
+      <div class="step-indicator" role="list" aria-label="Ablauf">
+        <div class="step-dot" data-step="1" role="listitem"><span class="step-dot__num">1</span><span class="step-dot__label">Spielen</span></div>
+        <div class="step-dot" data-step="2" role="listitem"><span class="step-dot__num">2</span><span class="step-dot__label">Foto</span></div>
+        <div class="step-dot" data-step="3" role="listitem"><span class="step-dot__num">3</span><span class="step-dot__label">Zählen</span></div>
       </div>
 
-      <div class="footer-bar">
-        <button id="putten-save" class="btn-primary">Speichern</button>
-        <button id="putten-stats-link" class="link-secondary">Statistik →</button>
-      </div>
-    </section>
+      <div class="record-body record-body--steps">
+        <!-- Step ① Spielen -->
+        <div id="putten-step-play" class="step-pane">
+          <div class="step-center">
+            <div class="step-icon" aria-hidden="true">⛳️</div>
+            <h2 class="step-headline">Bälle spielen</h2>
+            <p id="putten-play-text" class="step-lead"></p>
+          </div>
+          <button id="putten-play-next" class="btn-primary">Weiter</button>
+        </div>
 
-    <!-- ═════ View: Putten Statistik ═════ -->
-    <section id="view-putten-stats" class="view view--stats" hidden>
-      <div class="sub-header">
-        <button id="putten-stats-back" class="header__back">← Zurück</button>
-        <div class="sub-header__title">Statistik</div>
-        <div class="sub-header__right"></div>
+        <!-- Step ② Green-Foto -->
+        <div id="putten-step-photo" class="step-pane" hidden>
+          <div class="step-photo-body">
+            <div id="putten-photo-intro" class="step-center">
+              <div class="step-icon" aria-hidden="true">📷</div>
+              <h2 class="step-headline">Green-Foto</h2>
+              <p class="step-lead">Foto vom Grün – der Putter zeigt die Linie.</p>
+              <button id="putten-photo" class="photo-btn" type="button">📷 Foto aufnehmen</button>
+            </div>
+            <div id="putten-photo-result" class="step-photo-result" hidden></div>
+          </div>
+          <div class="step-nav">
+            <button id="putten-photo-back" class="link-secondary">← Zurück</button>
+            <button id="putten-photo-skip" class="link-secondary">Überspringen</button>
+            <button id="putten-photo-next" class="btn-primary">Weiter</button>
+          </div>
+          <input id="putten-photo-input" type="file" accept="image/*" capture="environment" hidden />
+        </div>
+
+        <!-- Step ③ Zählen -->
+        <div id="putten-step-count" class="step-pane" hidden>
+          <div id="putten-grid" class="counter-grid"></div>
+          <div id="putten-progress" class="progress-row"></div>
+          <div class="step-nav">
+            <button id="putten-count-back" class="link-secondary">← Zurück</button>
+            <button id="putten-save" class="btn-primary">Speichern</button>
+          </div>
+        </div>
       </div>
-      <div class="stats-content">
-        <div id="putten-stats-cards" class="stat-cards"></div>
-        <div id="putten-chart"></div>
-        <h3 class="section-heading">Letzte Sessions</h3>
-        <div id="putten-history"></div>
-      </div>
+
     </section>
 
     <!-- ═════ View: Range Aufnahme ═════ -->
@@ -110,22 +132,66 @@
 
       <div class="footer-bar">
         <button id="range-save" class="btn-primary">Speichern</button>
-        <button id="range-stats-link" class="link-secondary">Statistik →</button>
       </div>
     </section>
 
-    <!-- ═════ View: Range Statistik ═════ -->
-    <section id="view-range-stats" class="view view--stats" hidden>
+    <!-- ═════ View: Statistik (Tab) ═════ -->
+    <section id="view-stats" class="view view--stats" hidden>
+      <div class="seg-control" role="tablist" aria-label="Statistik-Bereich">
+        <button id="stats-seg-putten" class="seg-control__btn seg-control__btn--active" role="tab" aria-selected="true" data-seg="putten">Putten</button>
+        <button id="stats-seg-range" class="seg-control__btn" role="tab" aria-selected="false" data-seg="range">Range</button>
+      </div>
+
+      <div class="stats-content">
+        <!-- Putten pane -->
+        <div id="stats-pane-putten" class="stats-pane">
+          <div class="picker-strip picker-strip--inline">
+            <button id="stats-putten-picker" class="picker-strip__chip" aria-label="Übung wechseln">
+              <span id="stats-putten-picker-label">Putten</span>
+              <span class="picker-strip__caret" aria-hidden="true">▾</span>
+            </button>
+          </div>
+          <div id="putten-stats-cards" class="stat-cards"></div>
+          <div id="putten-chart"></div>
+          <h3 class="section-heading">Letzte Sessions</h3>
+          <div id="putten-history"></div>
+        </div>
+
+        <!-- Range pane -->
+        <div id="stats-pane-range" class="stats-pane" hidden>
+          <div class="club-strip club-strip--inline">
+            <div id="stats-range-club-row" class="club-row"></div>
+          </div>
+          <div id="range-stats-cards" class="stat-cards"></div>
+          <div id="range-chart"></div>
+          <h3 class="section-heading">Letzte Schläge</h3>
+          <div id="range-history"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═════ View: Einstellungen (kein Tab, via Zahnrad) ═════ -->
+    <section id="view-settings" class="view view--stats" hidden>
       <div class="sub-header">
-        <button id="range-stats-back" class="header__back">← Zurück</button>
-        <div class="sub-header__title">Statistik</div>
+        <button id="settings-back" class="header__back">← Zurück</button>
+        <div class="sub-header__title">Einstellungen</div>
         <div class="sub-header__right"></div>
       </div>
       <div class="stats-content">
-        <div id="range-stats-cards" class="stat-cards"></div>
-        <div id="range-chart"></div>
-        <h3 class="section-heading">Letzte Schläge</h3>
-        <div id="range-history"></div>
+        <div class="settings-section">
+          <h3 class="section-heading">Account</h3>
+          <div class="settings-card">
+            <div class="settings-row">
+              <span id="settings-email" class="settings-row__label">—</span>
+            </div>
+          </div>
+          <button id="settings-logout" class="sheet-add">Abmelden</button>
+        </div>
+        <div class="settings-section">
+          <h3 class="section-heading">Schläger</h3>
+          <div id="settings-clubs" class="settings-card"></div>
+          <button id="settings-add-club" class="sheet-add">+ Schläger</button>
+        </div>
       </div>
     </section>
 
@@ -140,6 +206,10 @@
     <button class="tab-item" data-tab="range">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l9 9-9 9"/></svg>
       <span>Range</span>
+    </button>
+    <button class="tab-item" data-tab="stats">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>
+      <span>Statistik</span>
     </button>
   </nav>
 

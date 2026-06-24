@@ -86,25 +86,29 @@ async function loadClubs() {
   updateSaveState();
 }
 
+// Record view + Statistik tab share the same club selection; render both rows.
 function renderClubs() {
-  const row = document.getElementById("range-club-row");
-  row.innerHTML = "";
-  local.clubs.forEach((c) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "club-chip" + (local.club?.id === c.id ? " club-chip--selected" : "");
-    btn.textContent = c.abbr;            // short label only, e.g. "7i"
-    btn.title = c.name;                  // full name on hover / a11y
-    btn.onclick = () => selectClub(c);
-    row.appendChild(btn);
+  ["range-club-row", "stats-range-club-row"].forEach((id) => {
+    const row = document.getElementById(id);
+    if (!row) return;
+    row.innerHTML = "";
+    local.clubs.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "club-chip" + (local.club?.id === c.id ? " club-chip--selected" : "");
+      btn.textContent = c.abbr;            // short label only, e.g. "7i"
+      btn.title = c.name;                  // full name on hover / a11y
+      btn.onclick = () => selectClub(c);
+      row.appendChild(btn);
+    });
   });
 }
 
 function selectClub(c) {
   local.club = c;
   renderClubs();
-  resetShot();    // rebuilds buckets/exact/tags/direction for the new club
-  loadStats();
+  resetShot();         // rebuilds buckets/exact/tags/direction for the new club
+  renderRangeStats();  // refresh inline summary + Statistik tab containers
   haptic("light");
 }
 

@@ -46,6 +46,8 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
       - SESSION_SECRET=${SESSION_SECRET:-}
+      # Local-only password-less login for testing. NEVER set this in prod/k8s.
+      - DEV_LOGIN=1
       # Needed for /api/analyze-putt (Claude VLM). Set in your shell or a .env file.
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     restart: unless-stopped

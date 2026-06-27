@@ -48,7 +48,7 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=long
+            type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
@@ -61,3 +61,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Trigger the k8s-infra deploy-simple pipeline (GitOps via repository_dispatch).
+      - name: Short SHA
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        id: shortsha
+        run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy scratchlab
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.K8S_INFRA_DISPATCH_TOKEN }}
+          repository: expert-sieve/k8s-infra
+          event-type: deploy-simple
+          client-payload: '{"app":"scratchlab","image_tag":"sha-${{ steps.shortsha.outputs.sha }}"}'

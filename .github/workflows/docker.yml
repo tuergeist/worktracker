@@ -72,7 +72,7 @@ jobs:
         if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.K8S_INFRA_DISPATCH_TOKEN }}
+          token: ${{ secrets.K8S_INFRA_PAT }}
           repository: expert-sieve/k8s-infra
           event-type: deploy-simple
           client-payload: '{"app":"scratchlab","image_tag":"sha-${{ steps.shortsha.outputs.sha }}"}'

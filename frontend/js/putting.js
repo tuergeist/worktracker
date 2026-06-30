@@ -58,11 +58,18 @@ function resetPhotoStep() {
   res.innerHTML = "";
 }
 
-// short date like "18.06.26"
+// "18.06. 14:30" within the last 11 months, "18.06.24 14:30" once older
+// (the year is only worth showing once the date gets ambiguous).
 function shortDate(playedAt) {
-  return new Date(playedAt + "Z").toLocaleDateString("de-DE", {
-    day: "2-digit", month: "2-digit", year: "2-digit",
-  });
+  const d = new Date(playedAt + "Z");
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 11);
+  const dateOpts = d < cutoff
+    ? { day: "2-digit", month: "2-digit", year: "2-digit" }
+    : { day: "2-digit", month: "2-digit" };
+  const date = d.toLocaleDateString("de-DE", dateOpts);
+  const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  return `${date} ${time}`;
 }
 
 // chart axis label
@@ -331,6 +338,16 @@ async function renderStats() {
     return;
   }
   hist.innerHTML = `<div class="history-card">${sessions.map(historyRow).join("")}</div>`;
+
+  hist.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = parseInt(btn.dataset.del, 10);
+      if (!confirm("Diese Session löschen?")) return;
+      haptic("light");
+      await api.send(`/api/sessions/${id}`, "DELETE");
+      loadStats();
+    };
+  });
 }
 
 function statCard(num, label, highlight = false) {
@@ -347,6 +364,7 @@ function historyRow(s) {
       <div class="history-row__date">${shortDate(s.played_at)}</div>
       <div class="history-row__dist">${chips}</div>
       <div class="history-row__total">${s.stats.total_putts} <span>Putts</span></div>
+      <button class="history-row__del" data-del="${s.id}" aria-label="Session löschen">✕</button>
     </div>`;
 }
 

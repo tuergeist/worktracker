@@ -821,13 +821,13 @@ html, body {
 }
 .history-row {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
+  grid-template-columns: 92px 1fr auto auto;
   align-items: center;
   gap: 8px;
   padding: 13px 16px;
 }
 .history-row + .history-row { border-top: 1px solid var(--divider); }
-.history-row__date { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+.history-row__date { font-size: 13px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
 .history-row__dist { display: flex; flex-wrap: wrap; gap: 6px; }
 .dist-chip {
   display: inline-flex;
@@ -843,6 +843,16 @@ html, body {
 .dist-chip .chip-label { font-size: 10px; font-weight: 400; color: var(--text-muted); margin-left: 1px; }
 .history-row__total { font-size: 20px; font-weight: 700; color: var(--text-primary); text-align: right; white-space: nowrap; }
 .history-row__total span { font-size: 11px; font-weight: 400; color: var(--text-muted); display: block; text-align: right; }
+.history-row__del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+.history-row__del:hover { color: var(--error); }
 .empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 12px 0; }
 
 /* ── Bottom tab bar ─────────────────────────────────────── */

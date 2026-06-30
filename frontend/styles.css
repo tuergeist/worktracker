@@ -206,7 +206,10 @@ html, body {
   padding-top: 2px;
 }
 .step-nav .btn-primary { flex: 1; }
-.step-nav .link-secondary { flex: none; min-height: 48px; padding: 0 4px; }
+/* link-secondary defaults to width:100%; in the nav row that makes each one
+   fill the row and overflow (nowrap), pushing the other buttons off-screen -
+   on narrow screens only the first button stayed visible. Size to content. */
+.step-nav .link-secondary { flex: none; width: auto; min-height: 48px; padding: 0 12px; }
 
 .footer-bar--end { justify-content: flex-end; }
 

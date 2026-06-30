@@ -499,5 +499,19 @@ async def dev_login(session: AsyncSession = Depends(get_async_session)):
 
 
 # ----------------------------------------------------------------- static
+# Frontend assets are served under stable, unhashed names (index.html, js/*.js,
+# styles.css). Without Cache-Control browsers cache them heuristically and serve
+# stale markup for hours after a deploy (users saw old UI: missing buttons etc).
+# no-cache = revalidate via ETag on every request (cheap 304s), always current.
+@app.middleware("http")
+async def _revalidate_static(request, call_next):
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api"):
+        ct = resp.headers.get("content-type", "")
+        if any(t in ct for t in ("text/html", "javascript", "text/css")):
+            resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 # Mounted last so /api routes take precedence.
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

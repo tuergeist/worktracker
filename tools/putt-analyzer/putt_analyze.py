@@ -178,6 +178,20 @@ def _extract_json(text):
     return json.loads(text[a:b + 1] if a >= 0 else text)
 
 
+def _is_num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _scaled_pt(p, s):
+    """VLM-Punkt [x, y] -> (x*s, y*s) in Vollaufloesung, oder None bei
+    fehlenden/ungueltigen Koordinaten. Das VLM liefert bei untauglichen
+    Bildern oft null statt Zahlen - ungefiltert ergab das frueher
+    'unsupported operand type(s) for *: NoneType and float'."""
+    if isinstance(p, (list, tuple)) and len(p) >= 2 and _is_num(p[0]) and _is_num(p[1]):
+        return (float(p[0]) * s, float(p[1]) * s)
+    return None
+
+
 def detect_vlm_rough(image_path, provider="mistral", model=None, api_key=None,
                      max_px=VLM_MAX_PX, timeout=60):
     """Grobe Semantik vom VLM -> Punkte in Vollaufloesung."""
@@ -193,13 +207,22 @@ def detect_vlm_rough(image_path, provider="mistral", model=None, api_key=None,
     raw = _extract_json(_vlm_call(provider, b64,
                                   VLM_PROMPT.format(w=small.size[0], h=small.size[1]),
                                   model, api_key, timeout))
-    putter = raw.get("putter")
+    hole = _scaled_pt(raw.get("hole"), s)
+    if hole is None:
+        raise ValueError("Kein Loch im Bild erkannt - bitte ein Green-Foto "
+                         "mit sichtbarem Loch aufnehmen.")
+    pe = raw.get("putter")
+    putter = None
+    if isinstance(pe, (list, tuple)) and len(pe) >= 2:
+        a, b = _scaled_pt(pe[0], s), _scaled_pt(pe[1], s)
+        if a is not None and b is not None:
+            putter = [a, b]
+    balls = [pt for raw_b in (raw.get("balls") or []) if (pt := _scaled_pt(raw_b, s)) is not None]
     return {
-        "hole": (raw["hole"][0] * s, raw["hole"][1] * s),
-        "putter": [(putter[0][0] * s, putter[0][1] * s),
-                   (putter[1][0] * s, putter[1][1] * s)] if putter else None,
-        "balls": [(b[0] * s, b[1] * s) for b in raw.get("balls", [])],
-        "balls_in_hole": int(raw.get("balls_in_hole", 0)),
+        "hole": hole,
+        "putter": putter,
+        "balls": balls,
+        "balls_in_hole": int(raw.get("balls_in_hole") or 0),
         "full_size": im.size,
     }
 

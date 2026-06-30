@@ -129,3 +129,44 @@ def test_hybrid_opus_putt1():
     assert res.scale_src in ("putter", "hole")
     cx, cy = res.hole
     assert 1500 <= cx <= 1720
+
+
+# ---------- VLM-Ausgabe-Sanitisierung (null-Koordinaten, kein echter Call) ----------
+# Das VLM gibt bei untauglichen Fotos null-Koordinaten zurueck. detect_vlm_rough
+# multipliziert jeden Punkt mit dem Downscale-Faktor; ungefiltert crashte das mit
+# "unsupported operand type(s) for *: 'NoneType' and 'float'". _vlm_call wird
+# gemockt, damit kein API-Key/Netz noetig ist.
+def _mock_vlm(monkeypatch, payload):
+    monkeypatch.setattr(pa, "_vlm_call", lambda *a, **k: json.dumps(payload))
+
+
+def test_vlm_rough_filters_null_and_malformed_balls(monkeypatch):
+    _mock_vlm(monkeypatch, {
+        "hole": [100, 120],
+        "putter": [[100, 120], [100, 300]],
+        "balls": [[200, 200], [None, 50], [300, None], "x", [], [310, 320]],
+        "balls_in_hole": 0,
+    })
+    rough = pa.detect_vlm_rough(str(IMG), provider="anthropic", api_key="test")
+    assert len(rough["balls"]) == 2                 # nur die zwei gueltigen Paare
+    assert rough["putter"] is not None
+    assert all(isinstance(c, float) for b in rough["balls"] for c in b)
+
+
+def test_vlm_rough_null_putter_coord_drops_putter(monkeypatch):
+    _mock_vlm(monkeypatch, {
+        "hole": [100, 120],
+        "putter": [[100, 120], [None, 300]],        # ein Endpunkt unbrauchbar
+        "balls": [],
+    })
+    rough = pa.detect_vlm_rough(str(IMG), provider="anthropic", api_key="test")
+    assert rough["putter"] is None                  # kein halber Putter
+    assert rough["hole"] is not None
+
+
+def test_vlm_rough_missing_hole_raises_clean(monkeypatch):
+    # Regression: untaugliches Bild -> hole=null. Frueher NoneType*float-Crash,
+    # jetzt klare, dem User zumutbare Meldung.
+    _mock_vlm(monkeypatch, {"hole": [None, None], "putter": None, "balls": []})
+    with pytest.raises(ValueError, match="Kein Loch"):
+        pa.detect_vlm_rough(str(IMG), provider="anthropic", api_key="test")

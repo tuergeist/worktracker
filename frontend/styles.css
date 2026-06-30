@@ -934,6 +934,16 @@ html, body {
   color: var(--text-primary);
 }
 .sheet-row__label { flex: 1; }
+.sheet-row__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
 .sheet-row__check { color: var(--primary); font-size: 16px; font-weight: 700; }
 .sheet-row__del {
   border: none;

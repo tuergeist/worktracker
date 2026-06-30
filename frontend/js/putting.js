@@ -186,12 +186,16 @@ function updateSaveBtn() {
 // ----------------------------------------------------------- exercise picker
 // Reused by both the record-view chip and the Statistik tab chip.
 function openPicker() {
-  const rows = local.exercises.map((ex) => {
+  const sorted = [...local.exercises].sort((a, b) =>
+    a.name.localeCompare(b.name, "de", { numeric: true }));
+  const rows = sorted.map((ex) => {
     const current = local.selected && ex.id === local.selected.id;
     const canDelete = !ex.is_default;
+    const n = ex.session_count || 0;
     return `
       <div class="sheet-row" data-id="${ex.id}">
         <span class="sheet-row__label">${escapeHtml(ex.name)} · ${ex.num_balls} Bälle</span>
+        <span class="sheet-row__count" title="${n} gespeicherte Sessions">${n}</span>
         ${current ? '<span class="sheet-row__check">✓</span>' : ""}
         ${canDelete ? `<button class="sheet-row__del" data-del="${ex.id}" aria-label="Übung löschen">✕</button>` : ""}
       </div>`;

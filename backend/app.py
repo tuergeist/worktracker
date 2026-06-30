@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Reuse the standalone putt-analyzer module (green-photo analysis).
@@ -88,7 +88,7 @@ app.include_router(
 
 
 # ---------------------------------------------------------------- serializers
-def _exercise_dict(e: Exercise) -> dict:
+def _exercise_dict(e: Exercise, session_count: int = 0) -> dict:
     return {
         "id": e.id,
         "name": e.name,
@@ -98,6 +98,7 @@ def _exercise_dict(e: Exercise) -> dict:
         "num_balls": e.num_balls,
         "is_default": bool(e.is_default),
         "created_at": e.created_at,
+        "session_count": session_count,
     }
 
 
@@ -149,7 +150,17 @@ async def list_exercises(
             select(Exercise).order_by(Exercise.category, Exercise.distance_cm, Exercise.id)
         )
     ).all()
-    return [_exercise_dict(e) for e in rows]
+    # session counts are per-user; one grouped query, then map onto the list
+    counts = dict(
+        (
+            await session.execute(
+                select(Session.exercise_id, func.count(Session.id))
+                .where(Session.user_id == user.id)
+                .group_by(Session.exercise_id)
+            )
+        ).all()
+    )
+    return [_exercise_dict(e, counts.get(e.id, 0)) for e in rows]
 
 
 @app.post("/api/exercises", status_code=201)

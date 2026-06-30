@@ -352,6 +352,36 @@ async function renderStats() {
       loadStats();
     };
   });
+
+  hist.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.onclick = () => editSessionDate(parseInt(btn.dataset.edit, 10), btn.dataset.at);
+  });
+}
+
+// Tap a history date -> native date/time picker. Stored value is UTC text
+// ("YYYY-MM-DD HH:MM:SS"); the picker works in local time, so convert both ways.
+function editSessionDate(id, playedAt) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const d = new Date(playedAt + "Z");
+  const input = document.createElement("input");
+  input.type = "datetime-local";
+  input.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  input.style.cssText = "position:fixed;left:-9999px;opacity:0";
+  document.body.appendChild(input);
+  input.onchange = async () => {
+    if (input.value) {
+      const t = new Date(input.value); // parsed as local time
+      const utc = `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`
+        + ` ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+      haptic("light");
+      await api.send(`/api/sessions/${id}`, "PATCH", { played_at: utc });
+      loadStats();
+    }
+    input.remove();
+  };
+  if (input.showPicker) input.showPicker();
+  else input.focus();
 }
 
 function statCard(num, label, highlight = false) {
@@ -365,7 +395,7 @@ function historyRow(s) {
     .join("");
   return `
     <div class="history-row">
-      <div class="history-row__date">${shortDate(s.played_at)}</div>
+      <button class="history-row__date" data-edit="${s.id}" data-at="${s.played_at}" aria-label="Datum ändern">${shortDate(s.played_at)}</button>
       <div class="history-row__dist">${chips}</div>
       <div class="history-row__total">${s.stats.total_putts} <span>Putts</span></div>
       <button class="history-row__del" data-del="${s.id}" aria-label="Session löschen">✕</button>

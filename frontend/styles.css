@@ -827,7 +827,12 @@ html, body {
   padding: 13px 16px;
 }
 .history-row + .history-row { border-top: 1px solid var(--divider); }
-.history-row__date { font-size: 13px; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
+.history-row__date {
+  font-size: 13px; color: var(--text-muted); font-weight: 500; white-space: nowrap;
+  background: none; border: none; padding: 0; text-align: left; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.history-row__date:hover { color: var(--primary); }
 .history-row__dist { display: flex; flex-wrap: wrap; gap: 6px; }
 .dist-chip {
   display: inline-flex;

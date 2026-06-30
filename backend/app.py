@@ -34,6 +34,7 @@ from .models import (
     ExerciseCreate,
     ExerciseUpdate,
     SessionCreate,
+    SessionUpdate,
     ShotCreate,
 )
 from .schemas import UserRead, UserUpdate
@@ -257,6 +258,22 @@ async def list_sessions(
 ):
     rows = await _user_sessions(session, user.id, exercise_id)
     return [_session_dict(s) for s in rows]
+
+
+@app.patch("/api/sessions/{session_id}")
+async def update_session(
+    session_id: int,
+    body: SessionUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    s = await session.get(Session, session_id)
+    if s is None or s.user_id != user.id:
+        raise HTTPException(404, "Session not found")
+    s.played_at = body.played_at
+    await session.commit()
+    await session.refresh(s)
+    return _session_dict(s)
 
 
 @app.delete("/api/sessions/{session_id}", status_code=204)

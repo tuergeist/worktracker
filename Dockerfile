@@ -18,4 +18,7 @@ COPY tools/putt-analyzer/putt_analyze.py ./tools/putt-analyzer/putt_analyze.py
 #   postgresql://worktracker:worktracker@db:5432/worktracker
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# --proxy-headers + trust all forwarders: behind the k8s TLS ingress uvicorn must
+# honor X-Forwarded-Proto=https, else OAuth redirect_uri is built as http:// and
+# Google rejects it (redirect_uri_mismatch).
+CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

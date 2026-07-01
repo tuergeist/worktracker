@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Reuse the standalone putt-analyzer module (green-photo analysis).
@@ -34,6 +34,7 @@ from .models import (
     ExerciseCreate,
     ExerciseUpdate,
     SessionCreate,
+    SessionUpdate,
     ShotCreate,
 )
 from .schemas import UserRead, UserUpdate
@@ -88,7 +89,7 @@ app.include_router(
 
 
 # ---------------------------------------------------------------- serializers
-def _exercise_dict(e: Exercise) -> dict:
+def _exercise_dict(e: Exercise, session_count: int = 0) -> dict:
     return {
         "id": e.id,
         "name": e.name,
@@ -98,6 +99,7 @@ def _exercise_dict(e: Exercise) -> dict:
         "num_balls": e.num_balls,
         "is_default": bool(e.is_default),
         "created_at": e.created_at,
+        "session_count": session_count,
     }
 
 
@@ -149,7 +151,17 @@ async def list_exercises(
             select(Exercise).order_by(Exercise.category, Exercise.distance_cm, Exercise.id)
         )
     ).all()
-    return [_exercise_dict(e) for e in rows]
+    # session counts are per-user; one grouped query, then map onto the list
+    counts = dict(
+        (
+            await session.execute(
+                select(Session.exercise_id, func.count(Session.id))
+                .where(Session.user_id == user.id)
+                .group_by(Session.exercise_id)
+            )
+        ).all()
+    )
+    return [_exercise_dict(e, counts.get(e.id, 0)) for e in rows]
 
 
 @app.post("/api/exercises", status_code=201)
@@ -246,6 +258,22 @@ async def list_sessions(
 ):
     rows = await _user_sessions(session, user.id, exercise_id)
     return [_session_dict(s) for s in rows]
+
+
+@app.patch("/api/sessions/{session_id}")
+async def update_session(
+    session_id: int,
+    body: SessionUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    s = await session.get(Session, session_id)
+    if s is None or s.user_id != user.id:
+        raise HTTPException(404, "Session not found")
+    s.played_at = body.played_at
+    await session.commit()
+    await session.refresh(s)
+    return _session_dict(s)
 
 
 @app.delete("/api/sessions/{session_id}", status_code=204)
@@ -499,5 +527,19 @@ async def dev_login(session: AsyncSession = Depends(get_async_session)):
 
 
 # ----------------------------------------------------------------- static
+# Frontend assets are served under stable, unhashed names (index.html, js/*.js,
+# styles.css). Without Cache-Control browsers cache them heuristically and serve
+# stale markup for hours after a deploy (users saw old UI: missing buttons etc).
+# no-cache = revalidate via ETag on every request (cheap 304s), always current.
+@app.middleware("http")
+async def _revalidate_static(request, call_next):
+    resp = await call_next(request)
+    if not request.url.path.startswith("/api"):
+        ct = resp.headers.get("content-type", "")
+        if any(t in ct for t in ("text/html", "javascript", "text/css")):
+            resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 # Mounted last so /api routes take precedence.
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")

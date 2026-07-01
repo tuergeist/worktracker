@@ -30,6 +30,11 @@ class SessionCreate(BaseModel):
     note: Optional[str] = None
 
 
+class SessionUpdate(BaseModel):
+    # UTC timestamp in the DB's stored format "YYYY-MM-DD HH:MM:SS"
+    played_at: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+
+
 # --- Range / clubs ---
 class ClubCreate(BaseModel):
     name: str = Field(..., min_length=1)

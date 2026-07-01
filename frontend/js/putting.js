@@ -58,11 +58,18 @@ function resetPhotoStep() {
   res.innerHTML = "";
 }
 
-// short date like "18.06.26"
+// "18.06. 14:30" within the last 11 months, "18.06.24 14:30" once older
+// (the year is only worth showing once the date gets ambiguous).
 function shortDate(playedAt) {
-  return new Date(playedAt + "Z").toLocaleDateString("de-DE", {
-    day: "2-digit", month: "2-digit", year: "2-digit",
-  });
+  const d = new Date(playedAt + "Z");
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 11);
+  const dateOpts = d < cutoff
+    ? { day: "2-digit", month: "2-digit", year: "2-digit" }
+    : { day: "2-digit", month: "2-digit" };
+  const date = d.toLocaleDateString("de-DE", dateOpts);
+  const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  return `${date} ${time}`;
 }
 
 // chart axis label
@@ -188,12 +195,16 @@ function updateSaveBtn() {
 // ----------------------------------------------------------- exercise picker
 // Reused by both the record-view chip and the Statistik tab chip.
 function openPicker() {
-  const rows = local.exercises.map((ex) => {
+  const sorted = [...local.exercises].sort((a, b) =>
+    a.name.localeCompare(b.name, "de", { numeric: true }));
+  const rows = sorted.map((ex) => {
     const current = local.selected && ex.id === local.selected.id;
     const canDelete = !ex.is_default;
+    const n = ex.session_count || 0;
     return `
       <div class="sheet-row" data-id="${ex.id}">
         <span class="sheet-row__label">${escapeHtml(ex.name)} · ${ex.num_balls} Bälle</span>
+        <span class="sheet-row__count" title="${n} gespeicherte Sessions">${n}</span>
         ${current ? '<span class="sheet-row__check">✓</span>' : ""}
         ${canDelete ? `<button class="sheet-row__del" data-del="${ex.id}" aria-label="Übung löschen">✕</button>` : ""}
       </div>`;
@@ -342,6 +353,46 @@ async function renderStats() {
     return;
   }
   hist.innerHTML = `<div class="history-card">${sessions.map(historyRow).join("")}</div>`;
+
+  hist.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = async () => {
+      const id = parseInt(btn.dataset.del, 10);
+      if (!confirm("Diese Session löschen?")) return;
+      haptic("light");
+      await api.send(`/api/sessions/${id}`, "DELETE");
+      loadStats();
+    };
+  });
+
+  hist.querySelectorAll("[data-edit]").forEach((btn) => {
+    btn.onclick = () => editSessionDate(parseInt(btn.dataset.edit, 10), btn.dataset.at);
+  });
+}
+
+// Tap a history date -> native date/time picker. Stored value is UTC text
+// ("YYYY-MM-DD HH:MM:SS"); the picker works in local time, so convert both ways.
+function editSessionDate(id, playedAt) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const d = new Date(playedAt + "Z");
+  const input = document.createElement("input");
+  input.type = "datetime-local";
+  input.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    + `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  input.style.cssText = "position:fixed;left:-9999px;opacity:0";
+  document.body.appendChild(input);
+  input.onchange = async () => {
+    if (input.value) {
+      const t = new Date(input.value); // parsed as local time
+      const utc = `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`
+        + ` ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
+      haptic("light");
+      await api.send(`/api/sessions/${id}`, "PATCH", { played_at: utc });
+      loadStats();
+    }
+    input.remove();
+  };
+  if (input.showPicker) input.showPicker();
+  else input.focus();
 }
 
 function statCard(num, label, highlight = false) {
@@ -355,9 +406,10 @@ function historyRow(s) {
     .join("");
   return `
     <div class="history-row">
-      <div class="history-row__date">${shortDate(s.played_at)}</div>
+      <button class="history-row__date" data-edit="${s.id}" data-at="${s.played_at}" aria-label="Datum ändern">${shortDate(s.played_at)}</button>
       <div class="history-row__dist">${chips}</div>
       <div class="history-row__total">${fmt2(s.stats.avg_putts_per_ball)} <span>Putts/Ball</span></div>
+      <button class="history-row__del" data-del="${s.id}" aria-label="Session löschen">✕</button>
     </div>`;
 }
 

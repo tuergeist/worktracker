@@ -206,7 +206,10 @@ html, body {
   padding-top: 2px;
 }
 .step-nav .btn-primary { flex: 1; }
-.step-nav .link-secondary { flex: none; min-height: 48px; padding: 0 4px; }
+/* link-secondary defaults to width:100%; in the nav row that makes each one
+   fill the row and overflow (nowrap), pushing the other buttons off-screen -
+   on narrow screens only the first button stayed visible. Size to content. */
+.step-nav .link-secondary { flex: none; width: auto; min-height: 48px; padding: 0 12px; }
 
 .footer-bar--end { justify-content: flex-end; }
 
@@ -819,13 +822,18 @@ html, body {
 }
 .history-row {
   display: grid;
-  grid-template-columns: 72px 1fr auto;
+  grid-template-columns: 92px 1fr auto auto;
   align-items: center;
   gap: 8px;
   padding: 13px 16px;
 }
 .history-row + .history-row { border-top: 1px solid var(--divider); }
-.history-row__date { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+.history-row__date {
+  font-size: 13px; color: var(--text-muted); font-weight: 500; white-space: nowrap;
+  background: none; border: none; padding: 0; text-align: left; cursor: pointer;
+  text-decoration: underline dotted; text-underline-offset: 3px;
+}
+.history-row__date:hover { color: var(--primary); }
 .history-row__dist { display: flex; flex-wrap: wrap; gap: 6px; }
 .dist-chip {
   display: inline-flex;
@@ -841,6 +849,16 @@ html, body {
 .dist-chip .chip-label { font-size: 10px; font-weight: 400; color: var(--text-muted); margin-left: 1px; }
 .history-row__total { font-size: 20px; font-weight: 700; color: var(--text-primary); text-align: right; white-space: nowrap; }
 .history-row__total span { font-size: 11px; font-weight: 400; color: var(--text-muted); display: block; text-align: right; }
+.history-row__del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 6px 4px;
+}
+.history-row__del:hover { color: var(--error); }
 .empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 12px 0; }
 
 /* ── Bottom tab bar ─────────────────────────────────────── */
@@ -922,6 +940,16 @@ html, body {
   color: var(--text-primary);
 }
 .sheet-row__label { flex: 1; }
+.sheet-row__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
 .sheet-row__check { color: var(--primary); font-size: 16px; font-weight: 700; }
 .sheet-row__del {
   border: none;

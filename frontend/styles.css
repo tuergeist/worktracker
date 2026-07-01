@@ -807,6 +807,7 @@ html, body {
 .chart-line { stroke: var(--primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .chart-dot { fill: var(--primary-dark); }
 .chart-axis { stroke: var(--divider); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-ci { stroke: var(--primary); stroke-width: 1; opacity: 0.4; vector-effect: non-scaling-stroke; }
 .chart-tick { fill: var(--text-muted); font-size: 9px; }
 
 /* history list */

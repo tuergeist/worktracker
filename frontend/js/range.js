@@ -327,6 +327,8 @@ function renderStats() {
   const points = (s.carry_trend || []).map((d) => ({
     label: d.date.slice(5).split("-").reverse().join("."), // YYYY-MM-DD -> DD.MM
     value: d.avg_carry,
+    ciLow: d.ci != null ? d.avg_carry - d.ci : undefined,
+    ciHigh: d.ci != null ? d.avg_carry + d.ci : undefined,
   }));
   chart.innerHTML = points.length >= 2
     ? `<div class="chart-card">${lineChart(points, { unit: "m" })}</div>`

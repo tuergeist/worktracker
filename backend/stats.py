@@ -3,6 +3,8 @@
 A session result is a list of putt counts per ball, e.g. [1, 2, 1, 3, ...].
 We summarise total putts and the distribution of 1-/2-/3-/4+-putts.
 """
+import math
+import statistics
 from typing import Dict, List
 
 BUCKETS = ["1", "2", "3", "4+"]
@@ -10,6 +12,14 @@ BUCKETS = ["1", "2", "3", "4+"]
 
 def _bucket(putts: int) -> str:
     return str(putts) if putts <= 3 else "4+"
+
+
+def _ci95(values: List[float], nd: int = 2) -> float | None:
+    """95% confidence half-width of the mean; only for >2 samples."""
+    n = len(values)
+    if n < 3:
+        return None
+    return round(1.96 * statistics.stdev(values) / math.sqrt(n), nd)
 
 
 def session_stats(results: List[int]) -> dict:
@@ -27,19 +37,30 @@ def session_stats(results: List[int]) -> dict:
     }
 
 
+def _ppb(s: dict) -> float:
+    """Normalised putts per ball for one session (e.g. 11 putts / 10 balls = 1.1)."""
+    st = s["stats"]
+    return st["total_putts"] / st["num_balls"] if st["num_balls"] else 0.0
+
+
 def aggregate_stats(sessions: List[dict]) -> dict:
-    """Aggregate over several sessions (each already carrying 'stats')."""
+    """Aggregate over several sessions (each already carrying 'stats').
+
+    All metrics are normalised to putts-per-ball so sessions with different
+    ball counts are comparable.
+    """
     if not sessions:
         return {
             "sessions": 0,
-            "best_total_putts": None,
-            "avg_total_putts": None,
-            "last_total_putts": None,
+            "best_ppb": None,
+            "avg_ppb": None,
+            "last_ppb": None,
             "avg_one_putt_pct": None,
             "history": [],
+            "daily": [],
         }
 
-    totals = [s["stats"]["total_putts"] for s in sessions]
+    ppbs = [_ppb(s) for s in sessions]  # newest-first
     one_putt_pcts = [
         (s["stats"]["one_putts"] / s["stats"]["num_balls"] * 100)
         for s in sessions
@@ -50,17 +71,30 @@ def aggregate_stats(sessions: List[dict]) -> dict:
         {
             "played_at": s["played_at"],
             "total_putts": s["stats"]["total_putts"],
+            "ppb": round(_ppb(s), 2),
             "one_putts": s["stats"]["one_putts"],
         }
         for s in reversed(sessions)
     ]
+    # Chart series: consolidate all sessions of one calendar day into one point
+    # (average putts-per-ball, with a 95% CI when >2 sessions that day).
+    # Sessions themselves stay separate elsewhere.
+    by_day: dict = {}
+    for s in sessions:
+        by_day.setdefault(s["played_at"][:10], []).append(_ppb(s))
+    daily = [
+        {"date": day, "avg_ppb": round(sum(v) / len(v), 2),
+         "sessions": len(v), "ci": _ci95(v)}
+        for day, v in sorted(by_day.items())
+    ]
     return {
         "sessions": len(sessions),
-        "best_total_putts": min(totals),
-        "avg_total_putts": round(sum(totals) / len(totals), 1),
-        "last_total_putts": totals[0],  # newest-first
+        "best_ppb": round(min(ppbs), 2),
+        "avg_ppb": round(sum(ppbs) / len(ppbs), 2),
+        "last_ppb": round(ppbs[0], 2),  # newest-first
         "avg_one_putt_pct": round(sum(one_putt_pcts) / len(one_putt_pcts), 1),
         "history": history,
+        "daily": daily,  # per-day consolidated chart series (putts per ball)
     }
 
 
@@ -96,7 +130,8 @@ def club_stats(shots: List[dict]) -> dict:
         day = s["played_at"][:10]  # "YYYY-MM-DD" (UTC-naive, see project-context)
         by_day.setdefault(day, []).append(s["carry_m"])
     carry_trend = [
-        {"date": day, "avg_carry": round(sum(v) / len(v), 1), "shots": len(v)}
+        {"date": day, "avg_carry": round(sum(v) / len(v), 1),
+         "shots": len(v), "ci": _ci95(v, 1)}
         for day, v in sorted(by_day.items())
     ]
 

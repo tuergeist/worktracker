@@ -72,6 +72,15 @@ function chartLabel(playedAt) {
   });
 }
 
+// "2026-06-20" -> "20.06"
+function dayLabel(date) {
+  return date.slice(5).split("-").reverse().join(".");
+}
+
+function fmt2(v) {
+  return v == null ? "–" : Number(v).toFixed(2);
+}
+
 // ----------------------------------------------------------- exercises
 async function loadExercises() {
   local.exercises = await api.get("/api/exercises");
@@ -308,21 +317,23 @@ async function renderStats() {
     return;
   }
 
-  // cards
+  // cards — normalised to putts per ball (lower = better)
   cards.innerHTML = [
     statCard(stats.sessions, "Sessions"),
-    statCard(stats.best_total_putts, "Bestwert (Putts)", true),
-    statCard(stats.avg_total_putts, "Ø Putts pro Session"),
+    statCard(fmt2(stats.best_ppb), "Bestwert (Putts/Ball)", true),
+    statCard(fmt2(stats.avg_ppb), "Ø Putts/Ball"),
     statCard(stats.avg_one_putt_pct + " %", "1-Putt-Quote", true),
   ].join("");
 
-  // chart (history oldest -> newest)
-  const points = (stats.history || []).map((h) => ({
-    label: chartLabel(h.played_at),
-    value: h.total_putts,
+  // chart: per-day consolidated putts/ball, with 95% CI whiskers when >2/day
+  const points = (stats.daily || []).map((d) => ({
+    label: dayLabel(d.date),
+    value: d.avg_ppb,
+    ciLow: d.ci != null ? d.avg_ppb - d.ci : undefined,
+    ciHigh: d.ci != null ? d.avg_ppb + d.ci : undefined,
   }));
   chart.innerHTML = points.length >= 2
-    ? `<div class="chart-card">${lineChart(points)}</div>`
+    ? `<div class="chart-card">${lineChart(points, { decimals: 2 })}</div>`
     : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 
   // history
@@ -346,7 +357,7 @@ function historyRow(s) {
     <div class="history-row">
       <div class="history-row__date">${shortDate(s.played_at)}</div>
       <div class="history-row__dist">${chips}</div>
-      <div class="history-row__total">${s.stats.total_putts} <span>Putts</span></div>
+      <div class="history-row__total">${fmt2(s.stats.avg_putts_per_ball)} <span>Putts/Ball</span></div>
     </div>`;
 }
 

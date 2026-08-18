@@ -54,3 +54,15 @@ class ShotCreate(BaseModel):
     drift_m: float = 0.0  # signed: negative = left, positive = right
     tags: List[str] = []
     note: Optional[str] = None
+
+
+# --- Training plans (guided multi-block sessions) ---
+class PlanRunCreate(BaseModel):
+    plan_key: str = Field(..., min_length=1)
+    data: dict  # opaque per-block field values; plan structure lives in the frontend
+    note: Optional[str] = None
+
+
+class PlanRunUpdate(BaseModel):
+    # UTC timestamp in the DB's stored format "YYYY-MM-DD HH:MM:SS"
+    played_at: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")

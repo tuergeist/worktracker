@@ -27,12 +27,14 @@ except Exception:  # heavy deps (numpy/scipy/PIL) may be absent in some setups
     putt_analyze = None
 
 from . import db
-from .db import Club, Exercise, Session, Shot, User, get_async_session
+from .db import Club, Exercise, PlanRun, Session, Shot, User, get_async_session
 from .models import (
     ClubCreate,
     ClubUpdate,
     ExerciseCreate,
     ExerciseUpdate,
+    PlanRunCreate,
+    PlanRunUpdate,
     SessionCreate,
     SessionUpdate,
     ShotCreate,
@@ -137,6 +139,17 @@ def _shot_dict(s: Shot) -> dict:
         "tags": json.loads(s.tags_json),
         "note": s.note,
         "played_at": s.played_at,
+    }
+
+
+def _plan_run_dict(p: PlanRun) -> dict:
+    return {
+        "id": p.id,
+        "user_id": p.user_id,
+        "plan_key": p.plan_key,
+        "data": json.loads(p.data_json),
+        "note": p.note,
+        "played_at": p.played_at,
     }
 
 
@@ -299,6 +312,72 @@ async def exercise_stats(
 ):
     rows = await _user_sessions(session, user.id, exercise_id)  # newest-first
     return aggregate_stats([_session_dict(s) for s in rows])
+
+
+# ------------------------------------------------------------- plan runs
+@app.post("/api/plan-runs", status_code=201)
+async def create_plan_run(
+    body: PlanRunCreate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    p = PlanRun(
+        user_id=user.id,
+        plan_key=body.plan_key,
+        data_json=json.dumps(body.data),
+        note=body.note,
+    )
+    session.add(p)
+    await session.commit()
+    await session.refresh(p)
+    return _plan_run_dict(p)
+
+
+@app.get("/api/plan-runs")
+async def list_plan_runs(
+    plan_key: str,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    rows = (
+        await session.scalars(
+            select(PlanRun)
+            .where(PlanRun.plan_key == plan_key, PlanRun.user_id == user.id)
+            .order_by(PlanRun.played_at.desc(), PlanRun.id.desc())
+        )
+    ).all()
+    return [_plan_run_dict(p) for p in rows]
+
+
+@app.patch("/api/plan-runs/{plan_run_id}")
+async def update_plan_run(
+    plan_run_id: int,
+    body: PlanRunUpdate,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    p = await session.get(PlanRun, plan_run_id)
+    if p is None or p.user_id != user.id:
+        raise HTTPException(404, "Plan run not found")
+    p.played_at = body.played_at
+    await session.commit()
+    await session.refresh(p)
+    return _plan_run_dict(p)
+
+
+@app.delete("/api/plan-runs/{plan_run_id}", status_code=204)
+async def delete_plan_run(
+    plan_run_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_active_user),
+):
+    result = await session.execute(
+        delete(PlanRun).where(PlanRun.id == plan_run_id, PlanRun.user_id == user.id)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(404, "Plan run not found")
+    await session.commit()
+    return None
 
 
 # ----------------------------------------------------------- range: clubs

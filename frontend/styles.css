@@ -861,6 +861,103 @@ html, body {
 .history-row__del:hover { color: var(--error); }
 .empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 12px 0; }
 
+/* ── Training plans (Pläne) ─────────────────────────────── */
+.step-dot--compact .step-dot__label { display: none; }
+
+.plan-meta { padding: 10px 12px 0; flex-shrink: 0; }
+
+.plan-pane { overflow-y: auto; padding-bottom: 4px; }
+.plan-pane[hidden] { display: none; }
+
+.plan-pane__head { display: flex; gap: 14px; align-items: flex-start; }
+.plan-mins {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  line-height: 1;
+  flex-shrink: 0;
+  min-width: 40px;
+}
+.plan-mins span {
+  display: block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+.plan-pane__title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.plan-pane__desc { font-size: 14px; color: var(--text-muted); line-height: 1.45; }
+
+.plan-fields { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
+.plan-field { display: flex; flex-direction: column; gap: 6px; }
+.plan-field__label { font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+.plan-field__row { display: flex; align-items: center; gap: 10px; }
+.plan-field__suffix { font-size: 13px; color: var(--text-muted); }
+.plan-input {
+  height: var(--input-height);
+  padding: 0 14px;
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--card);
+  border: 1.5px solid var(--divider);
+  border-radius: var(--r-md);
+}
+.plan-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+input.plan-input[type="number"] { width: 96px; text-align: center; }
+.plan-input--wide { width: 100%; }
+
+.plan-punch { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.plan-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--divider);
+  background: var(--card);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.plan-dot[data-on="1"] { background: var(--primary); border-color: var(--primary-dark); color: #fff; }
+.plan-tally { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 10px; }
+.plan-tally b { font-size: 20px; }
+.plan-gap { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+
+/* history table: plan-run fields are too heterogeneous for the single-metric
+   .history-row layout, so this gets a plain scrollable table instead. */
+.plan-table-wrap {
+  overflow-x: auto;
+  background: var(--card);
+  border-radius: var(--r-md);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--divider);
+}
+.plan-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.plan-table th {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 10px 10px 8px;
+  border-bottom: 1.5px solid var(--divider);
+}
+.plan-table td { padding: 9px 10px; border-bottom: 1px solid var(--divider); color: var(--text-primary); }
+.plan-table tr:last-child td { border-bottom: none; }
+.plan-table__date {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-weight: 500;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.plan-table__date:hover { color: var(--primary); }
+
 /* ── Bottom tab bar ─────────────────────────────────────── */
 .tab-bar {
   display: flex;

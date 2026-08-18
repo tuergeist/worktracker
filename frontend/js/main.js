@@ -4,6 +4,7 @@ import { initAuth } from "./auth.js";
 import { showSettings } from "./users.js";
 import { initPutting } from "./putting.js";
 import { initRange } from "./range.js";
+import { initPlans } from "./plans.js";
 import { maybeShowIntro } from "./intro.js";
 
 const LS_TAB = "wt.tab";
@@ -12,6 +13,7 @@ const LS_TAB = "wt.tab";
 const VIEWS = {
   putten: "view-putten-record",
   range:  "view-range-record",
+  plaene: "view-plans",
   stats:  "view-stats",
 };
 
@@ -41,16 +43,17 @@ function wireTabs() {
   });
 }
 
-// ── Statistik tab: segmented control toggles Putten / Range panes ──────────
+// ── Statistik tab: segmented control toggles Putten / Range / Pläne panes ──
 let statsSeg = "putten";
 
 function renderActiveSegment() {
   if (statsSeg === "range") window.__renderRangeStats?.();
+  else if (statsSeg === "plaene") window.__renderPlansStats?.();
   else window.__renderPuttenStats?.();
 }
 
 function setSegment(seg) {
-  statsSeg = seg === "range" ? "range" : "putten";
+  statsSeg = ["range", "plaene"].includes(seg) ? seg : "putten";
   document.querySelectorAll(".seg-control__btn").forEach((b) => {
     const on = b.dataset.seg === statsSeg;
     b.classList.toggle("seg-control__btn--active", on);
@@ -58,6 +61,7 @@ function setSegment(seg) {
   });
   document.getElementById("stats-pane-putten").hidden = statsSeg !== "putten";
   document.getElementById("stats-pane-range").hidden = statsSeg !== "range";
+  document.getElementById("stats-pane-plaene").hidden = statsSeg !== "plaene";
   renderActiveSegment();
 }
 
@@ -87,6 +91,7 @@ function wireSettings() {
 
   initPutting();
   await initRange();
+  initPlans();
 
   const last = localStorage.getItem(LS_TAB);
   activateTab(VIEWS[last] ? last : "putten");

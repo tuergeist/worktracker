@@ -135,11 +135,30 @@
       </div>
     </section>
 
+    <!-- ═════ View: Pläne Aufnahme ═════ -->
+    <section id="view-plans" class="view" hidden>
+      <div class="picker-strip">
+        <button id="plans-picker" class="picker-strip__chip" aria-label="Plan wechseln">
+          <span id="plans-picker-label">Plan</span>
+          <span class="picker-strip__caret" aria-hidden="true">▾</span>
+        </button>
+      </div>
+
+      <div id="plans-meta" class="plan-meta"></div>
+
+      <div id="plans-step-indicator" class="step-indicator" role="list" aria-label="Ablauf"></div>
+
+      <div class="record-body record-body--steps">
+        <div id="plans-step-panes"></div>
+      </div>
+    </section>
+
     <!-- ═════ View: Statistik (Tab) ═════ -->
     <section id="view-stats" class="view view--stats" hidden>
       <div class="seg-control" role="tablist" aria-label="Statistik-Bereich">
         <button id="stats-seg-putten" class="seg-control__btn seg-control__btn--active" role="tab" aria-selected="true" data-seg="putten">Putten</button>
         <button id="stats-seg-range" class="seg-control__btn" role="tab" aria-selected="false" data-seg="range">Range</button>
+        <button id="stats-seg-plaene" class="seg-control__btn" role="tab" aria-selected="false" data-seg="plaene">Pläne</button>
       </div>
 
       <div class="stats-content">
@@ -166,6 +185,18 @@
           <div id="range-chart"></div>
           <h3 class="section-heading">Letzte Schläge</h3>
           <div id="range-history"></div>
+        </div>
+
+        <!-- Pläne pane -->
+        <div id="stats-pane-plaene" class="stats-pane" hidden>
+          <div class="picker-strip picker-strip--inline">
+            <button id="stats-plans-picker" class="picker-strip__chip" aria-label="Plan wechseln">
+              <span id="stats-plans-picker-label">Plan</span>
+              <span class="picker-strip__caret" aria-hidden="true">▾</span>
+            </button>
+          </div>
+          <h3 class="section-heading">Verlauf</h3>
+          <div id="plans-history"></div>
         </div>
       </div>
     </section>
@@ -206,6 +237,10 @@
     <button class="tab-item" data-tab="range">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M12 3l9 9-9 9"/></svg>
       <span>Range</span>
+    </button>
+    <button class="tab-item" data-tab="plaene">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>Pläne</span>
     </button>
     <button class="tab-item" data-tab="stats">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M22 12h-3M12 22v-3M2 12h3"/></svg>

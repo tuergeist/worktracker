@@ -18,6 +18,7 @@ Data model:
   sessions       — one recorded attempt of an exercise, belongs to a user
   clubs          — driving-range club catalogue (GLOBAL)
   shots          — one driving-range shot, belongs to a user
+  plan_runs      — one completed run of a guided training plan, belongs to a user
 """
 import asyncio
 import os
@@ -122,6 +123,25 @@ class Shot(Base):
     carry_m: Mapped[float] = mapped_column(Float, nullable=False)
     drift_m: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     tags_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]", server_default="[]")
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
+
+
+class PlanRun(Base):
+    """One completed run of a guided multi-block training plan.
+
+    Plan content (blocks/fields) lives in the frontend as static data, not in
+    the DB — ``data_json`` is an opaque field->value dict the backend never
+    inspects, so tweaking plan content needs no backend change.
+    """
+    __tablename__ = "plan_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    plan_key: Mapped[str] = mapped_column(Text, nullable=False)  # "kurzspiel" | "range"
+    data_json: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
 

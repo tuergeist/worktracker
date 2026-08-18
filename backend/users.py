@@ -55,15 +55,19 @@ class RedirectCookieTransport(CookieTransport):
         return redirect
 
 
+# 90 days: this is a personal training log used every few days, not a banking
+# app — a 24h session forced a re-login on every visit.
+SESSION_LIFETIME_SECONDS = 90 * 24 * 60 * 60
+
 cookie_transport = RedirectCookieTransport(
     cookie_name="scratchlabauth",
-    cookie_max_age=86400,
+    cookie_max_age=SESSION_LIFETIME_SECONDS,
     cookie_secure=COOKIE_SECURE,
 )
 
 
 def get_jwt_strategy() -> JWTStrategy:
-    return JWTStrategy(secret=SESSION_SECRET, lifetime_seconds=86400)
+    return JWTStrategy(secret=SESSION_SECRET, lifetime_seconds=SESSION_LIFETIME_SECONDS)
 
 
 auth_backend = AuthenticationBackend(

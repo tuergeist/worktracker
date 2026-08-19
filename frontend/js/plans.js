@@ -62,11 +62,11 @@ const PLAN_DEFS = {
       },
       {
         title: "Teildistanzen · 50 m", minutes: 15,
-        desc: "Direkt nach dem Aufwärmen, solange die Konzentration da ist. 10 Bälle aufs 50-m-Ziel — wie viele landen im Fenster 45–55 m? Danach Uhrzeiten-System mit SW und AW üben: Rückschwung auf 8, 9, 10 Uhr, Tempo bleibt konstant. Nur der 9-Uhr-Wert wird eingetragen, 8 und 10 Uhr dienen als Kalibrierpunkte drumherum.",
+        desc: "Direkt nach dem Aufwärmen, solange die Konzentration da ist. 10 Bälle aufs 50-m-Ziel — wie viele landen im Fenster 45–55 m? Danach Uhrzeiten-System mit PW und SW üben: Rückschwung auf 8, 9, 10 Uhr, Tempo bleibt konstant. Nur der 9-Uhr-Wert wird eingetragen, 8 und 10 Uhr dienen als Kalibrierpunkte drumherum.",
         fields: [
           { key: "fifty", short: "50 m", type: "number", label: "Treffer im Fenster 45–55 m", min: 0, max: 10, suffix: "von 10" },
+          { key: "pw9", short: "PW9", type: "number", label: "PW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
           { key: "sw9", short: "SW9", type: "number", label: "SW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
-          { key: "aw9", short: "AW9", type: "number", label: "AW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
         ],
       },
       {

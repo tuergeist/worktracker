@@ -52,7 +52,7 @@ coverage/
 .parcel-cache/
 *.tsbuildinfo
 .gstack/
-data/
+/data/
 __pycache__/
 *.pyc
 tools/putt-analyzer/venv/

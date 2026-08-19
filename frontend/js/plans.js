@@ -137,7 +137,6 @@ function fieldHtml(f, idx) {
       <div class="plan-field">
         <span class="plan-field__label">${escapeHtml(f.label)}</span>
         <div class="plan-punch" id="plan-field-${idx}-${f.key}"></div>
-        <div class="plan-tally" id="plan-tally-${idx}-${f.key}"><b>0</b> / ${f.max}</div>
       </div>`;
   }
   if (f.type === "gap") {
@@ -238,7 +237,6 @@ function wireGap(idx, f) {
 // many happen to fit the screen width.
 function wireCount(idx, f) {
   const wrap = $(`plan-field-${idx}-${f.key}`);
-  const tally = $(`plan-tally-${idx}-${f.key}`);
   const groupSize = f.groupSize || 4;
   local.data[f.key] = 0;
 
@@ -261,7 +259,6 @@ function wireCount(idx, f) {
         b.setAttribute("aria-pressed", "true");
         local.data[f.key] = i;
       }
-      tally.innerHTML = `<b>${local.data[f.key]}</b> / ${f.max}`;
     };
     dots.push(b);
   }

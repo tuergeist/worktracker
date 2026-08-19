@@ -764,6 +764,11 @@ html, body {
 
 /* ── Settings page ──────────────────────────────────────── */
 .settings-section { display: flex; flex-direction: column; gap: 10px; }
+/* .section-heading's negative margin-bottom is tuned for sitting directly in
+   .stats-content's 24px gap (Statistik panes) — nested one level deeper here
+   inside .settings-section's own 10px gap, the two combine into a net
+   negative gap and the heading visually overlaps the card below it. */
+.settings-section .section-heading { margin-bottom: 0; }
 .settings-card {
   background: var(--card);
   border-radius: var(--r-md);

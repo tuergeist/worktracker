@@ -1,6 +1,13 @@
 /* ── Reset & tokens ─────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* The bare [hidden] attribute selector and a class-based "display: flex/grid"
+   rule have equal specificity, so whichever is declared later in this file
+   wins — meaning any element hidden via el.hidden = true can silently stay
+   visible if its class sets display after this point. This one rule pins
+   [hidden] as authoritative everywhere, so that's never a per-element trap. */
+[hidden] { display: none !important; }
+
 :root {
   --primary:       #2e7d32;
   --primary-dark:  #1b5e20;
@@ -34,7 +41,12 @@ html, body {
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100dvh;
+  /* height, not min-height: a floor lets #app grow past the viewport when a
+     view's content is tall, which hands scrolling to the whole page instead
+     of the intended internal scroll regions — dragging fixed elements like
+     the footer nav along with it. A hard cap + overflow:hidden forces every
+     view's own flex:1/min-height:0/overflow-y:auto chain to actually engage. */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -714,6 +726,8 @@ html, body {
   border: 1px solid var(--divider);
   border-radius: var(--r-md);
 }
+/* nested inside .stats-content, which already has its own padding/gap */
+.seg-control--inline { margin: 0; }
 .seg-control__btn {
   flex: 1;
   min-height: 40px;
@@ -866,97 +880,139 @@ html, body {
 
 .plan-meta { padding: 10px 12px 0; flex-shrink: 0; }
 
-.plan-pane { overflow-y: auto; padding-bottom: 4px; }
+/* #plans-step-panes wraps the .plan-pane elements (putting.js's equivalent
+   steps sit directly in .record-body--steps) — without flex:1 here, a
+   .plan-pane's own flex:1 has no flex-container parent to grow into, so it
+   just sizes to content and leftover space collects below the whole wrapper
+   instead of being distributed to the visible pane. */
+#plans-step-panes { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+/* overflow-y alone would implicitly compute overflow-x to auto (CSS spec
+   quirk), clipping anything that visually overflows the box — including a
+   focused input's outline near the pane's edge on narrow phones. Setting
+   overflow-x explicitly avoids that. */
+.plan-pane { overflow-x: visible; overflow-y: auto; padding-bottom: 4px; }
 .plan-pane[hidden] { display: none; }
 
-.plan-pane__head { display: flex; gap: 14px; align-items: flex-start; }
+/* Content stays top-anchored like a normal form (title/description/fields in
+   document order) — any leftover height below just stays blank above the
+   fixed nav bar, rather than vertically centering the block, which read as
+   the title floating in the middle of the screen instead of leading it. */
+.plan-pane__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-top: 24px;
+  gap: 20px;
+}
+
+.plan-pane__head { display: flex; gap: 16px; align-items: flex-start; }
 .plan-mins {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--primary-dark);
   line-height: 1;
   flex-shrink: 0;
-  min-width: 40px;
+  min-width: 44px;
 }
 .plan-mins span {
   display: block;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--text-muted);
   margin-top: 3px;
 }
-.plan-pane__title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-.plan-pane__desc { font-size: 14px; color: var(--text-muted); line-height: 1.45; }
+.plan-pane__title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.plan-pane__desc { font-size: 17px; color: var(--text-muted); line-height: 1.5; }
 
-.plan-fields { display: flex; flex-direction: column; gap: 14px; margin-top: 6px; }
-.plan-field { display: flex; flex-direction: column; gap: 6px; }
-.plan-field__label { font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
-.plan-field__row { display: flex; align-items: center; gap: 10px; }
-.plan-field__suffix { font-size: 13px; color: var(--text-muted); }
+.plan-fields { display: flex; flex-direction: column; gap: 16px; }
+.plan-field { display: flex; flex-direction: column; gap: 7px; }
+.plan-field__label { font-size: 15px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+.plan-field__row { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.plan-field__suffix { font-size: 15px; color: var(--text-muted); }
 .plan-input {
   height: var(--input-height);
   padding: 0 14px;
-  font-size: 16px;
+  font-size: 19px;
   color: var(--text-primary);
   background: var(--card);
   border: 1.5px solid var(--divider);
   border-radius: var(--r-md);
 }
 .plan-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
-input.plan-input[type="number"] { width: 96px; text-align: center; }
+input.plan-input[type="number"] { width: 108px; text-align: center; }
 .plan-input--wide { width: 100%; }
 
-.plan-punch { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.plan-punch { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 4px; }
+.plan-punch__group { display: flex; gap: 14px; }
 .plan-dot {
-  width: 36px;
-  height: 36px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   border: 1.5px solid var(--divider);
   background: var(--card);
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 21px;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.plan-dot[data-on="1"] { background: var(--primary); border-color: var(--primary-dark); color: #fff; }
-.plan-tally { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-top: 10px; }
-.plan-tally b { font-size: 20px; }
-.plan-gap { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.plan-dot[data-selected="1"] { background: var(--primary); border-color: var(--primary-dark); color: #fff; }
+.plan-tally { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-top: 10px; text-align: center; }
+.plan-tally b { font-size: 24px; }
+.plan-gap { font-size: 15px; font-weight: 600; color: var(--text-muted); text-align: center; }
 
-/* history table: plan-run fields are too heterogeneous for the single-metric
-   .history-row layout, so this gets a plain scrollable table instead. */
-.plan-table-wrap {
-  overflow-x: auto;
+.plan-scale-hint { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* history: one card per run, fields wrapping naturally (text fields take the
+   full row width) — a table's columns forced horizontal scrolling once a
+   plan had more than 4-5 fields, which doesn't work well on a phone. */
+.plan-history-list { display: flex; flex-direction: column; gap: 10px; }
+.plan-history-card {
   background: var(--card);
   border-radius: var(--r-md);
   box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--divider);
+  padding: 14px 16px;
 }
-.plan-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
-.plan-table th {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  text-align: left;
-  padding: 10px 10px 8px;
-  border-bottom: 1.5px solid var(--divider);
+.plan-history-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--divider);
 }
-.plan-table td { padding: 9px 10px; border-bottom: 1px solid var(--divider); color: var(--text-primary); }
-.plan-table tr:last-child td { border-bottom: none; }
-.plan-table__date {
+.plan-history-card__date {
   background: none;
   border: none;
   padding: 0;
   cursor: pointer;
   color: var(--text-muted);
   font-weight: 500;
+  font-size: 14px;
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
-.plan-table__date:hover { color: var(--primary); }
+.plan-history-card__date:hover { color: var(--primary); }
+.plan-history-card__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+.plan-history-card__field { display: flex; flex-direction: column; gap: 3px; min-width: 52px; }
+.plan-history-card__field--wide { flex-basis: 100%; }
+.plan-history-card__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.plan-history-card__value { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.plan-history-card__field--wide .plan-history-card__value { font-weight: 400; }
 
 /* ── Bottom tab bar ─────────────────────────────────────── */
 .tab-bar {
@@ -1241,4 +1297,40 @@ input.plan-input[type="number"] { width: 96px; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .intro-card { animation: none; }
+}
+
+/* ── Plan run: save confirmation ────────────────────────── */
+.plan-done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 24px;
+  animation: intro-rise 0.3s ease-out;
+}
+.plan-done[hidden] { display: none; }
+.plan-done__icon {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  animation: plan-done-pop 0.4s cubic-bezier(.34,1.56,.64,1) both;
+}
+.plan-done__title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+.plan-done__lead { font-size: 16px; color: var(--text-muted); max-width: 20rem; margin-bottom: 10px; }
+@keyframes plan-done-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-done, .plan-done__icon { animation: none; }
 }

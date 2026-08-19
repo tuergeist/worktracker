@@ -137,19 +137,31 @@
 
     <!-- ═════ View: Pläne Aufnahme ═════ -->
     <section id="view-plans" class="view" hidden>
-      <div class="picker-strip">
-        <button id="plans-picker" class="picker-strip__chip" aria-label="Plan wechseln">
-          <span id="plans-picker-label">Plan</span>
-          <span class="picker-strip__caret" aria-hidden="true">▾</span>
-        </button>
+      <div class="seg-control" role="tablist" aria-label="Plan wechseln">
+        <button id="plans-seg-kurzspiel" class="seg-control__btn seg-control__btn--active" role="tab" aria-selected="true" data-key="kurzspiel">Kurzspiel</button>
+        <button id="plans-seg-range" class="seg-control__btn" role="tab" aria-selected="false" data-key="range">Range</button>
       </div>
-
-      <div id="plans-meta" class="plan-meta"></div>
 
       <div id="plans-step-indicator" class="step-indicator" role="list" aria-label="Ablauf"></div>
 
-      <div class="record-body record-body--steps">
+      <div id="plans-record-body" class="record-body record-body--steps">
         <div id="plans-step-panes"></div>
+      </div>
+
+      <div id="plans-done" class="plan-done" hidden>
+        <div class="plan-done__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l6 6L20 6"/></svg>
+        </div>
+        <h2 class="plan-done__title">Geschafft!</h2>
+        <p class="plan-done__lead" id="plans-done-lead">Durchlauf gespeichert.</p>
+        <button id="plans-done-restart" class="btn-primary" type="button">Neu starten</button>
+      </div>
+
+      <div id="plans-footer" class="footer-bar">
+        <div class="step-nav">
+          <button id="plans-nav-back" class="link-secondary" type="button">← Zurück</button>
+          <button id="plans-nav-next" class="btn-primary" type="button">Weiter</button>
+        </div>
       </div>
     </section>
 
@@ -189,12 +201,14 @@
 
         <!-- Pläne pane -->
         <div id="stats-pane-plaene" class="stats-pane" hidden>
-          <div class="picker-strip picker-strip--inline">
-            <button id="stats-plans-picker" class="picker-strip__chip" aria-label="Plan wechseln">
-              <span id="stats-plans-picker-label">Plan</span>
-              <span class="picker-strip__caret" aria-hidden="true">▾</span>
-            </button>
+          <div class="seg-control seg-control--inline" role="tablist" aria-label="Plan wechseln">
+            <button id="stats-plans-seg-kurzspiel" class="seg-control__btn seg-control__btn--active" role="tab" aria-selected="true" data-key="kurzspiel">Kurzspiel</button>
+            <button id="stats-plans-seg-range" class="seg-control__btn" role="tab" aria-selected="false" data-key="range">Range</button>
           </div>
+          <div class="club-strip club-strip--inline">
+            <div id="plans-metric-row" class="club-row"></div>
+          </div>
+          <div id="plans-chart"></div>
           <h3 class="section-heading">Verlauf</h3>
           <div id="plans-history"></div>
         </div>

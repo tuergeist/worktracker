@@ -1,7 +1,8 @@
 "use strict";
 
 import { api, escapeHtml, onUserChange } from "./store.js";
-import { openSheet, closeSheet, haptic } from "./ui.js";
+import { haptic } from "./ui.js";
+import { lineChart } from "./chart.js";
 
 // Plan content lives here, not in the backend — the API stores each run's
 // field values as an opaque JSON blob, so tweaking blocks/fields never needs
@@ -10,35 +11,34 @@ import { openSheet, closeSheet, haptic } from "./ui.js";
 const PLAN_DEFS = {
   kurzspiel: {
     label: "Kurzspiel",
-    metaField: { key: "green", short: "Grün", label: "Grün heute", placeholder: "langsam / normal / schnell" },
     blocks: [
       {
         title: "Einfühlen", minutes: 5,
         desc: "Putts unterschiedlicher Länge ohne Ziel und ohne Zählen. Nur Tempo und Treffgefühl. Kalibriert dich auf die heutige Grüngeschwindigkeit.",
-        fields: [],
+        fields: [{ key: "green", short: "Grün", type: "greenScale" }],
       },
       {
         title: "Up & Down · 12 Bälle", minutes: 20,
-        desc: "Bälle weit verteilt im Vorgrün und Rough ablegen — jeden aus seiner eigenen Lage spielen, auch die schlechten. Chip auf die Fahne, dann einlochen. Zählt als Erfolg, wenn du mit maximal 2 Putts drin bist.",
-        fields: [{ key: "ud", short: "U&D", type: "punch12" }],
+        desc: "Bälle 10–15 m vom Loch entfernt weit verteilt im Vorgrün und Rough ablegen — jeden aus seiner eigenen Lage spielen, auch die schlechten. Chip auf die Fahne, dann einlochen. Zählt als Erfolg, wenn du mit maximal 2 Putts drin bist.",
+        fields: [{ key: "ud", short: "U&D", type: "count", max: 12, groupSize: 4, label: "Erfolge (max. 2 Putts)" }],
       },
       {
         title: "Kurze Putts", minutes: 8,
-        desc: "Kreis mit 6 Bällen um 1 m. Alle sechs lochen, sonst von vorn. Danach dasselbe aus 1,5 m.",
+        desc: "Kreis mit 6 Bällen um 1 Putterlänge. Alle sechs lochen, sonst von vorn. Danach dasselbe aus 2 Putterlängen.",
         fields: [
-          { key: "r1", short: "1 m", type: "number", label: "Durchgänge bis 6/6 · 1 m", min: 1, max: 20 },
-          { key: "r15", short: "1,5 m", type: "number", label: "Durchgänge bis 6/6 · 1,5 m", min: 1, max: 20 },
+          { key: "p1", short: "1 PL", type: "count", max: 6, groupSize: 3, label: "Anläufe, bis alle 6 aus 1 Putterlänge sitzen" },
+          { key: "p2", short: "2 PL", type: "count", max: 6, groupSize: 3, label: "Anläufe, bis alle 6 aus 2 Putterlängen sitzen" },
         ],
       },
       {
         title: "Mitteldistanz 3–5 m", minutes: 7,
-        desc: "Jeder Putt von einer anderen Seite des Lochs. Vor jedem Putt lesen und einen Zwischenpunkt festlegen. Hier liegt das eigentliche Scoring.",
-        fields: [{ key: "mid", short: "Mitte", type: "number", label: "Gelocht", min: 0, max: 10, suffix: "von 10" }],
+        desc: "12 Bälle, jeder Putt von einer anderen Seite des Lochs. Vor jedem Putt lesen und einen Zwischenpunkt festlegen. Hier liegt das eigentliche Scoring.",
+        fields: [{ key: "mid", short: "Mitte", type: "count", max: 12, groupSize: 4, label: "Gelocht" }],
       },
       {
         title: "Lag-Putts 6–15 m", minutes: 8,
-        desc: "Ziel ist der 1-m-Kreis ums Loch, mit Tees markiert — nicht das Loch selbst. Distanzen mischen, nicht der Reihe nach abarbeiten. Richtwert: 7 von 10.",
-        fields: [{ key: "lag", short: "Lag", type: "number", label: "Im Kreis", min: 0, max: 10, suffix: "von 10" }],
+        desc: "12 Bälle. Ziel ist der 1-m-Kreis ums Loch, mit Tees markiert — nicht das Loch selbst. Distanzen mischen, nicht der Reihe nach abarbeiten. Richtwert: 8 von 12.",
+        fields: [{ key: "lag", short: "Lag", type: "count", max: 12, groupSize: 4, label: "Im Kreis" }],
       },
       {
         title: "Druckabschluss", minutes: 2,
@@ -54,20 +54,19 @@ const PLAN_DEFS = {
   },
   range: {
     label: "Range",
-    metaField: { key: "cond", short: "Wind/Platz", label: "Wind / Platz", placeholder: "ruhig, Matten, …" },
     blocks: [
       {
         title: "Aufwärmen", minutes: 10,
         desc: "PW und SW, halbe Schwünge, kurze Ziele. Reihenfolge von unten nach oben — kalibriert Tempo und Treffmoment.",
-        fields: [],
+        fields: [{ key: "cond", short: "Wind/Platz", type: "text", label: "Wind / Platz heute", placeholder: "ruhig, Matten, …" }],
       },
       {
         title: "Teildistanzen · 50 m", minutes: 15,
-        desc: "Direkt nach dem Aufwärmen, solange die Konzentration da ist. Uhrzeiten-System mit SW und AW: 8 Uhr, 9 Uhr, 10 Uhr — Tempo konstant, nur die Rückschwunglänge ändert sich. Weiten aufschreiben, sonst bleibt es Gefühl.",
+        desc: "Direkt nach dem Aufwärmen, solange die Konzentration da ist. 10 Bälle aufs 50-m-Ziel — wie viele landen im Fenster 45–55 m? Danach Uhrzeiten-System mit SW und AW üben: Rückschwung auf 8, 9, 10 Uhr, Tempo bleibt konstant. Nur der 9-Uhr-Wert wird eingetragen, 8 und 10 Uhr dienen als Kalibrierpunkte drumherum.",
         fields: [
-          { key: "fifty", short: "50 m", type: "number", label: "Auf 50 m ±5 m", min: 0, max: 10, suffix: "von 10" },
-          { key: "sw9", short: "SW9", type: "number", label: "SW 9 Uhr = m", min: 0, max: 120, step: 5, suffix: "m" },
-          { key: "aw9", short: "AW9", type: "number", label: "AW 9 Uhr = m", min: 0, max: 120, step: 5, suffix: "m" },
+          { key: "fifty", short: "50 m", type: "number", label: "Treffer im Fenster 45–55 m", min: 0, max: 10, suffix: "von 10" },
+          { key: "sw9", short: "SW9", type: "number", label: "SW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
+          { key: "aw9", short: "AW9", type: "number", label: "AW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
         ],
       },
       {
@@ -105,6 +104,8 @@ const local = {
   plan: null,
   data: {},
   step: 1,
+  plansRuns: [],   // last-fetched history for the current plan (chart re-renders reuse this, no refetch)
+  chartMetric: null, // key of the field currently charted in the Pläne stats segment
 };
 
 function $(id) { return document.getElementById(id); }
@@ -123,18 +124,41 @@ function shortDate(playedAt) {
   return `${date} ${time}`;
 }
 
+// chart axis label — mirrors putting.js's chartLabel (not exported there).
+function chartLabel(playedAt) {
+  return new Date(playedAt + "Z").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+}
+
 // ----------------------------------------------------------- field render
 function fieldHtml(f, idx) {
   const id = `plan-input-${idx}-${f.key}`;
-  if (f.type === "punch12") {
+  if (f.type === "count") {
     return `
-      <div>
+      <div class="plan-field">
+        <span class="plan-field__label">${escapeHtml(f.label)}</span>
         <div class="plan-punch" id="plan-field-${idx}-${f.key}"></div>
-        <div class="plan-tally" id="plan-tally-${idx}-${f.key}">Up &amp; Downs: <b>0</b> / 12</div>
+        <div class="plan-tally" id="plan-tally-${idx}-${f.key}"><b>0</b> / ${f.max}</div>
       </div>`;
   }
   if (f.type === "gap") {
     return `<div class="plan-gap" id="plan-field-${idx}-${f.key}">Gap: –</div>`;
+  }
+  if (f.type === "greenScale") {
+    return `
+      <div class="plan-field">
+        <span class="plan-field__label">Grün heute</span>
+        <div id="plan-field-${idx}-${f.key}-scalewrap">
+          <div class="direction-toggle" id="plan-field-${idx}-${f.key}-scale">
+            ${[1, 2, 3, 4, 5].map((v) => `<button type="button" class="dir-btn" data-v="${v}">${v}</button>`).join("")}
+          </div>
+          <div class="plan-scale-hint"><span>langsam</span><span>schnell</span></div>
+        </div>
+        <div class="plan-field__row" id="plan-field-${idx}-${f.key}-stimp-wrap" hidden>
+          <input type="number" class="plan-input" id="plan-input-${idx}-${f.key}-stimp" min="4" max="14" step="0.5">
+          <span class="plan-field__suffix">Stimp</span>
+        </div>
+        <button type="button" class="link-secondary" id="plan-field-${idx}-${f.key}-toggle">oder Stimp-Wert eintragen</button>
+      </div>`;
   }
   if (f.type === "number") {
     return `
@@ -154,23 +178,21 @@ function fieldHtml(f, idx) {
     </label>`;
 }
 
-function paneHtml(block, idx, total) {
-  const isLast = idx === total - 1;
+// Nav (Zurück/Weiter/Speichern) lives outside the scrollable panes as a fixed
+// footer bar (#plans-nav-back/-next in index.html) so it's always reachable
+// without scrolling, even on a block with several fields — see goStep().
+function paneHtml(block, idx) {
   return `
     <div id="plan-pane-${idx}" class="step-pane plan-pane" data-idx="${idx}" hidden>
-      <div class="plan-pane__head">
-        ${block.minutes != null ? `<div class="plan-mins">${block.minutes}<span>MIN</span></div>` : ""}
-        <div>
-          <h2 class="plan-pane__title">${escapeHtml(block.title)}</h2>
-          <p class="plan-pane__desc">${escapeHtml(block.desc)}</p>
+      <div class="plan-pane__body">
+        <div class="plan-pane__head">
+          ${block.minutes != null ? `<div class="plan-mins">${block.minutes}<span>MIN</span></div>` : ""}
+          <div>
+            <h2 class="plan-pane__title">${escapeHtml(block.title)}</h2>
+            <p class="plan-pane__desc">${escapeHtml(block.desc)}</p>
+          </div>
         </div>
-      </div>
-      <div class="plan-fields">${block.fields.map((f) => fieldHtml(f, idx)).join("")}</div>
-      <div class="step-nav">
-        ${idx > 0 ? `<button class="link-secondary" data-back type="button">← Zurück</button>` : `<span></span>`}
-        ${isLast
-          ? `<button class="btn-primary" data-save type="button">Speichern</button>`
-          : `<button class="btn-primary" data-next type="button">Weiter</button>`}
+        <div class="plan-fields">${block.fields.map((f) => fieldHtml(f, idx)).join("")}</div>
       </div>
     </div>`;
 }
@@ -209,29 +231,91 @@ function wireGap(idx, f) {
   $(`plan-input-${idx}-${bk}`).addEventListener("input", update);
 }
 
-function wirePunch(idx, f) {
+// Single-select 1–N picker: tap the number that matches the result (e.g.
+// "10" for 10 of 12) — no keyboard, and no per-ball toggling either. Tapping
+// the already-selected number clears it back to 0. Grouped in rows of
+// f.groupSize (defaults to 4) so it always reads as fixed rows, not however
+// many happen to fit the screen width.
+function wireCount(idx, f) {
   const wrap = $(`plan-field-${idx}-${f.key}`);
   const tally = $(`plan-tally-${idx}-${f.key}`);
+  const groupSize = f.groupSize || 4;
   local.data[f.key] = 0;
-  for (let i = 1; i <= 12; i++) {
+
+  const dots = [];
+  for (let i = 1; i <= f.max; i++) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "plan-dot";
-    b.dataset.on = "0";
+    b.dataset.selected = "0";
     b.textContent = String(i);
-    b.setAttribute("aria-label", `Ball ${i} — Up and Down`);
+    b.setAttribute("aria-label", `${f.label}: ${i}`);
     b.setAttribute("aria-pressed", "false");
     b.onclick = () => {
-      const on = b.dataset.on === "1" ? "0" : "1";
-      b.dataset.on = on;
-      b.setAttribute("aria-pressed", on === "1");
+      const wasSelected = b.dataset.selected === "1";
       haptic("light");
-      const n = [...wrap.children].filter((d) => d.dataset.on === "1").length;
-      local.data[f.key] = n;
-      tally.innerHTML = `Up &amp; Downs: <b>${n}</b> / 12`;
+      dots.forEach((d) => { d.dataset.selected = "0"; d.setAttribute("aria-pressed", "false"); });
+      local.data[f.key] = 0;
+      if (!wasSelected) {
+        b.dataset.selected = "1";
+        b.setAttribute("aria-pressed", "true");
+        local.data[f.key] = i;
+      }
+      tally.innerHTML = `<b>${local.data[f.key]}</b> / ${f.max}`;
     };
-    wrap.appendChild(b);
+    dots.push(b);
   }
+
+  for (let g = 0; g * groupSize < f.max; g++) {
+    const group = document.createElement("div");
+    group.className = "plan-punch__group";
+    dots.slice(g * groupSize, g * groupSize + groupSize).forEach((b) => group.appendChild(b));
+    wrap.appendChild(group);
+  }
+}
+
+// Green speed: quick 1–5 tap scale by default (matches the app's other
+// tap/0–10 fields), with a fallback to a real Stimp reading for anyone who
+// has one — mutually exclusive, switching modes clears the other value.
+function wireGreenScale(idx, f) {
+  const scaleWrap = $(`plan-field-${idx}-${f.key}-scalewrap`);
+  const scaleGroup = $(`plan-field-${idx}-${f.key}-scale`);
+  const stimpWrap = $(`plan-field-${idx}-${f.key}-stimp-wrap`);
+  const stimpInput = $(`plan-input-${idx}-${f.key}-stimp`);
+  const toggle = $(`plan-field-${idx}-${f.key}-toggle`);
+
+  function setMode(mode) {
+    scaleWrap.hidden = mode !== "scale";
+    stimpWrap.hidden = mode !== "stimp";
+    toggle.textContent = mode === "scale" ? "oder Stimp-Wert eintragen" : "oder 1–5-Skala";
+  }
+  setMode("scale");
+
+  scaleGroup.querySelectorAll(".dir-btn").forEach((btn) => {
+    btn.onclick = () => {
+      scaleGroup.querySelectorAll(".dir-btn").forEach((b) => b.classList.remove("dir-btn--selected"));
+      btn.classList.add("dir-btn--selected");
+      haptic("light");
+      local.data.green_scale = parseInt(btn.dataset.v, 10);
+      local.data.green_stimp = null;
+    };
+  });
+
+  toggle.onclick = () => {
+    haptic("light");
+    const goingToStimp = stimpWrap.hidden;
+    setMode(goingToStimp ? "stimp" : "scale");
+    if (goingToStimp) {
+      local.data.green_scale = null;
+    } else {
+      local.data.green_stimp = null;
+      stimpInput.value = "";
+    }
+  };
+
+  stimpInput.addEventListener("input", () => {
+    local.data.green_stimp = stimpInput.value === "" ? null : Number(stimpInput.value);
+  });
 }
 
 // ----------------------------------------------------------- guided steps
@@ -245,116 +329,192 @@ function goStep(n) {
     dot.classList.toggle("step-dot--active", s === n);
     dot.classList.toggle("step-dot--done", s < n);
   });
+  updateNav();
+}
+
+// Persistent footer nav (outside the scrollable pane) — behavior depends on
+// the current step, not on which pane is showing, so it's wired once.
+function updateNav() {
+  const back = $("plans-nav-back");
+  const next = $("plans-nav-next");
+  const total = local.plan.blocks.length;
+  back.hidden = local.step <= 1;
+  if (local.step >= total) {
+    next.textContent = "Speichern";
+    next.onclick = () => saveRun();
+  } else {
+    next.textContent = "Weiter";
+    next.onclick = () => { haptic("light"); goStep(local.step + 1); };
+  }
 }
 
 // ----------------------------------------------------------- plan selection
-function renderPickerLabel() {
-  const a = $("plans-picker-label");
-  const b = $("stats-plans-picker-label");
-  if (a) a.textContent = local.plan.label;
-  if (b) b.textContent = local.plan.label;
+// Only two fixed plans exist, so a two-tab segmented control (record view +
+// the Statistik "Pläne" segment share the same selection) beats a sheet picker.
+function updateSegButtons() {
+  document.querySelectorAll(".seg-control__btn[data-key]").forEach((b) => {
+    const on = b.dataset.key === local.planKey;
+    b.classList.toggle("seg-control__btn--active", on);
+    b.setAttribute("aria-selected", String(on));
+  });
+}
+
+function wirePlanSegButtons() {
+  document.querySelectorAll(".seg-control__btn[data-key]").forEach((b) => {
+    b.onclick = () => { haptic("light"); selectPlan(b.dataset.key); };
+  });
 }
 
 function renderPlanUI() {
   const plan = local.plan;
-
-  const meta = $("plans-meta");
-  meta.innerHTML = `
-    <label class="plan-field">
-      <span class="plan-field__label">${escapeHtml(plan.metaField.label)}</span>
-      <input type="text" class="plan-input plan-input--wide" id="plan-meta-input" placeholder="${escapeHtml(plan.metaField.placeholder || "")}">
-    </label>`;
-  $("plan-meta-input").addEventListener("input", (e) => {
-    local.data[plan.metaField.key] = e.target.value === "" ? null : e.target.value;
-  });
 
   $("plans-step-indicator").innerHTML = plan.blocks.map((_, i) => `
     <div class="step-dot step-dot--compact" data-step="${i + 1}" role="listitem"><span class="step-dot__num">${i + 1}</span></div>
   `).join("");
 
   const panesEl = $("plans-step-panes");
-  panesEl.innerHTML = plan.blocks.map((b, i) => paneHtml(b, i, plan.blocks.length)).join("");
+  panesEl.innerHTML = plan.blocks.map((b, i) => paneHtml(b, i)).join("");
 
   plan.blocks.forEach((block, idx) => {
     block.fields.forEach((f) => {
-      if (f.type === "punch12") wirePunch(idx, f);
-      else if (f.type === "number") wireNumber(idx, f);
+      if (f.type === "number") wireNumber(idx, f);
       else if (f.type === "text") wireText(idx, f);
       else if (f.type === "gap") wireGap(idx, f);
+      else if (f.type === "greenScale") wireGreenScale(idx, f);
+      else if (f.type === "count") wireCount(idx, f);
     });
   });
 
-  panesEl.querySelectorAll(".plan-pane").forEach((pane) => {
-    const idx = parseInt(pane.dataset.idx, 10);
-    const back = pane.querySelector("[data-back]");
-    if (back) back.onclick = () => { haptic("light"); goStep(idx); };
-    const next = pane.querySelector("[data-next]");
-    if (next) next.onclick = () => { haptic("light"); goStep(idx + 2); };
-    const save = pane.querySelector("[data-save]");
-    if (save) save.onclick = () => saveRun();
-  });
+  $("plans-nav-back").onclick = () => { if (local.step > 1) { haptic("light"); goStep(local.step - 1); } };
 
   goStep(1);
 }
 
 function selectPlan(key) {
+  hideDone();
   local.planKey = PLAN_DEFS[key] ? key : DEFAULT_PLAN_KEY;
   local.plan = PLAN_DEFS[local.planKey];
   local.data = {};
-  renderPickerLabel();
+  updateSegButtons();
   renderPlanUI();
   loadPlansHistory();
 }
 
-function openPlanPicker() {
-  const rows = Object.entries(PLAN_DEFS).map(([key, plan]) => {
-    const current = key === local.planKey;
+// ----------------------------------------------------------- save
+function showDone() {
+  $("plans-record-body").hidden = true;
+  $("plans-step-indicator").hidden = true;
+  $("plans-footer").hidden = true;
+  $("plans-done-lead").textContent = `${local.plan.label} gespeichert.`;
+  $("plans-done").hidden = false;
+}
+
+function hideDone() {
+  $("plans-done").hidden = true;
+  $("plans-record-body").hidden = false;
+  $("plans-step-indicator").hidden = false;
+  $("plans-footer").hidden = false;
+}
+
+// count/greenScale fields default to 0 for "untouched", so a run where
+// every value is still null/empty/0 was never actually filled in — saving
+// it just adds a blank card to the history.
+function hasAnyData() {
+  return Object.values(local.data).some((v) => v !== null && v !== undefined && v !== "" && v !== 0);
+}
+
+async function saveRun() {
+  if (!hasAnyData()) {
+    haptic("warning");
+    alert("Trag mindestens einen Wert ein, bevor du speicherst.");
+    return;
+  }
+  await api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } });
+  haptic("success");
+  showDone(); // stay on a confirmation screen instead of dropping back to step 1
+  loadPlansHistory();
+}
+
+// ----------------------------------------------------------- history
+// Cards, not a table: a plan run has 5-8 heterogeneous fields, which as
+// table columns forced horizontal scrolling on a phone. A card per run with
+// fields wrapping naturally (text fields full-width) needs no side-scroll.
+function flatFields(plan) {
+  return plan.blocks.flatMap((b) => b.fields.map((f) => ({
+    key: f.key, short: f.short, type: f.type, max: f.max, suffix: f.suffix, wide: f.type === "text",
+  })));
+}
+
+// Only genuine numeric/distance fields get a trend chart — not the green
+// scale (categorical), free text, or notes.
+function chartableFields(plan) {
+  return flatFields(plan).filter((f) => ["number", "count", "gap"].includes(f.type));
+}
+
+function historyCard(r, columns) {
+  const d = r.data || {};
+  const fields = columns.map((c) => {
+    let value;
+    if (c.type === "greenScale") {
+      value = d.green_stimp != null ? `Stimp ${d.green_stimp}` : d.green_scale != null ? `${d.green_scale}/5` : null;
+    } else {
+      const v = d[c.key];
+      value = (v === null || v === undefined || v === "") ? null
+        : c.type === "count" ? `${v}/${c.max}`
+        : String(v);
+    }
     return `
-      <div class="sheet-row" data-key="${key}">
-        <span class="sheet-row__label">${escapeHtml(plan.label)}</span>
-        ${current ? '<span class="sheet-row__check">✓</span>' : ""}
+      <div class="plan-history-card__field${c.wide ? " plan-history-card__field--wide" : ""}">
+        <span class="plan-history-card__label">${escapeHtml(c.short)}</span>
+        <span class="plan-history-card__value">${value == null ? "·" : escapeHtml(value)}</span>
       </div>`;
   }).join("");
+  return `
+    <div class="plan-history-card">
+      <div class="plan-history-card__head">
+        <button class="plan-history-card__date" data-edit="${r.id}" data-at="${r.played_at}">${shortDate(r.played_at)}</button>
+        <button class="history-row__del" data-del="${r.id}" aria-label="Durchlauf löschen">✕</button>
+      </div>
+      <div class="plan-history-card__fields">${fields}</div>
+    </div>`;
+}
 
-  openSheet({ title: "Plan", bodyHtml: rows });
-
-  $("sheet-body").querySelectorAll(".sheet-row").forEach((row) => {
-    row.onclick = () => {
+// Metric chip row (reuses .club-strip/.club-row/.club-chip — same "pick one,
+// see its trend" pattern Range already uses for clubs) + the chart itself.
+// Re-render on chip click reads from local.plansRuns, no refetch needed.
+function renderMetricPicker(plan) {
+  const fields = chartableFields(plan);
+  if (!fields.some((f) => f.key === local.chartMetric)) {
+    local.chartMetric = fields[0]?.key ?? null;
+  }
+  const row = $("plans-metric-row");
+  row.innerHTML = fields.map((f) => `
+    <button type="button" class="club-chip${f.key === local.chartMetric ? " club-chip--selected" : ""}" data-metric="${f.key}">${escapeHtml(f.short)}</button>
+  `).join("");
+  row.querySelectorAll("[data-metric]").forEach((btn) => {
+    btn.onclick = () => {
       haptic("light");
-      closeSheet();
-      selectPlan(row.dataset.key);
+      local.chartMetric = btn.dataset.metric;
+      renderMetricPicker(plan);
+      renderChart(plan);
     };
   });
 }
 
-// ----------------------------------------------------------- save
-async function saveRun() {
-  await api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } });
-  haptic("success");
-  selectPlan(local.planKey); // rebuild fresh (clears all inputs), refresh history
-}
+function renderChart(plan) {
+  const chartEl = $("plans-chart");
+  const field = chartableFields(plan).find((f) => f.key === local.chartMetric);
+  if (!field) { chartEl.innerHTML = ""; return; }
 
-// ----------------------------------------------------------- history
-// Matches the original sheet's Verlauf table: meta fields (Grün/Wind-Platz)
-// are captured per run but only shown while recording, not in the history.
-function flatFields(plan) {
-  return plan.blocks.flatMap((b) => b.fields.map((f) => ({ key: f.key, short: f.short, type: f.type })));
-}
+  const points = local.plansRuns
+    .filter((r) => r.data && r.data[field.key] !== null && r.data[field.key] !== undefined)
+    .slice()
+    .reverse() // runs arrive newest-first; chart wants oldest -> newest
+    .map((r) => ({ label: chartLabel(r.played_at), value: Number(r.data[field.key]) }));
 
-function planRow(r, columns) {
-  const d = r.data || {};
-  const cells = columns.map((c) => {
-    const v = d[c.key];
-    if (v === null || v === undefined || v === "") return "<td>·</td>";
-    if (c.type === "punch12") return `<td><b>${escapeHtml(String(v))}</b>/12</td>`;
-    return `<td>${escapeHtml(String(v))}</td>`;
-  }).join("");
-  return `
-    <tr>
-      <td><button class="plan-table__date" data-edit="${r.id}" data-at="${r.played_at}">${shortDate(r.played_at)}</button></td>
-      ${cells}
-      <td><button class="history-row__del" data-del="${r.id}" aria-label="Durchlauf löschen">✕</button></td>
-    </tr>`;
+  chartEl.innerHTML = points.length >= 2
+    ? `<div class="chart-card">${lineChart(points, { unit: field.suffix === "m" ? "m" : "", decimals: field.type === "gap" ? 1 : 0 })}</div>`
+    : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 }
 
 async function loadPlansHistory() {
@@ -365,27 +525,24 @@ async function renderPlansHistory() {
   if (!local.plan) return;
   const key = local.planKey;
   const plan = local.plan;
-  renderPickerLabel();
+  updateSegButtons();
 
   const hist = $("plans-history");
   const runs = await api.get(`/api/plan-runs?plan_key=${encodeURIComponent(key)}`);
+  local.plansRuns = runs;
+
+  renderMetricPicker(plan);
+
   if (!runs.length) {
+    $("plans-chart").innerHTML = "";
     hist.innerHTML = `<div class="empty">Noch kein ${escapeHtml(plan.label)}-Durchlauf gespeichert.</div>`;
     return;
   }
 
+  renderChart(plan);
+
   const columns = flatFields(plan);
-  hist.innerHTML = `
-    <div class="plan-table-wrap">
-      <table class="plan-table">
-        <thead><tr>
-          <th>Datum</th>
-          ${columns.map((c) => `<th>${escapeHtml(c.short)}</th>`).join("")}
-          <th></th>
-        </tr></thead>
-        <tbody>${runs.map((r) => planRow(r, columns)).join("")}</tbody>
-      </table>
-    </div>`;
+  hist.innerHTML = `<div class="plan-history-list">${runs.map((r) => historyCard(r, columns)).join("")}</div>`;
 
   hist.querySelectorAll("[data-del]").forEach((btn) => {
     btn.onclick = async () => {
@@ -428,8 +585,8 @@ function editRunDate(id, playedAt) {
 
 // ----------------------------------------------------------- init
 export function initPlans() {
-  $("plans-picker").onclick = () => openPlanPicker();
-  $("stats-plans-picker").onclick = () => openPlanPicker();
+  wirePlanSegButtons();
+  $("plans-done-restart").onclick = () => { haptic("light"); selectPlan(local.planKey); };
 
   window.__renderPlansStats = () => renderPlansHistory();
 

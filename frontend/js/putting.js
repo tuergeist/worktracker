@@ -1,18 +1,17 @@
 "use strict";
 
 import { api, store, onUserChange, escapeHtml } from "./store.js";
-import { openSheet, closeSheet, haptic } from "./ui.js";
+import { openSheet, closeSheet, haptic, withSaveFeedback } from "./ui.js";
 import { lineChart } from "./chart.js";
 
 const BUCKETS = ["1", "2", "3", "4+"];
-const LABELS = { "1": "1-Putt", "2": "2-Putts", "3": "3-Putts", "4+": "4+-Putts" };
+const LABELS = { "1": "1-Putt", "2": "2-Putts", "3": "3-Putts", "4+": "4+ Putts" };
 
 const local = {
   exercises: [],
   selected: null,
   dist: { "1": 0, "2": 0, "3": 0, "4+": 0 },
   lastBucket: null, // most recently incremented bucket (for --active)
-  step: 1, // guided flow: 1 Spielen · 2 Foto · 3 Zählen (in-memory only)
 };
 
 function $(id) { return document.getElementById(id); }
@@ -26,36 +25,8 @@ function assigned() {
   return BUCKETS.reduce((s, b) => s + local.dist[b], 0);
 }
 
-// ----------------------------------------------------------- guided steps
-function goStep(n) {
-  local.step = n;
-  $("putten-step-play").hidden = n !== 1;
-  $("putten-step-photo").hidden = n !== 2;
-  $("putten-step-count").hidden = n !== 3;
-
-  document.querySelectorAll(".step-dot").forEach((dot) => {
-    const s = parseInt(dot.dataset.step, 10);
-    dot.classList.toggle("step-dot--active", s === n);
-    dot.classList.toggle("step-dot--done", s < n);
-  });
-
-  if (n === 1) renderPlayStep();
-  if (n === 2) resetPhotoStep();
-  if (n === 3) renderGrid();
-}
-
-function renderPlayStep() {
-  const el = $("putten-play-text");
-  if (!local.selected) { el.textContent = "Wähle zuerst eine Übung."; return; }
-  el.innerHTML = `Spiel deine <b>${local.selected.num_balls} Bälle</b> aufs Loch.`;
-}
-
-// reset step ② to its capture prompt (clears any prior analysis)
-function resetPhotoStep() {
-  $("putten-photo-intro").hidden = false;
-  const res = $("putten-photo-result");
-  res.hidden = true;
-  res.innerHTML = "";
+function remaining() {
+  return local.selected ? Math.max(0, local.selected.num_balls - assigned()) : 0;
 }
 
 // "18.06. 14:30" within the last 11 months, "18.06.24 14:30" once older
@@ -99,7 +70,7 @@ async function loadExercises() {
     local.selected = local.exercises.find((e) => e.id === local.selected.id);
   }
   renderPickerLabel();
-  goStep(1);
+  renderGrid();
 }
 
 function renderPickerLabel() {
@@ -117,17 +88,20 @@ function selectExercise(ex) {
   local.selected = ex;
   resetDist();
   renderPickerLabel();
-  goStep(1); // changing exercise restarts the flow
+  renderGrid();
   loadStats();
 }
 
 // ----------------------------------------------------------- counter grid
+// One cell per putt count. Besides ±1 each cell can absorb every ball that is
+// still unassigned ("Rest +8") — the common case is a handful of misses and
+// the remainder as 1-Putts, which otherwise means tapping "+" eight times.
 function renderGrid() {
   const grid = $("putten-grid");
   if (!local.selected) { grid.innerHTML = ""; renderProgress(); return; }
 
-  const total = assigned();
-  const atMax = total >= local.selected.num_balls;
+  const rest = remaining();
+  const atMax = rest === 0;
 
   grid.innerHTML = BUCKETS.map((bucket) => {
     const v = local.dist[bucket];
@@ -137,20 +111,28 @@ function renderGrid() {
       : "counter-cell";
     const minusDis = v === 0 ? " disabled" : "";
     const plusDis = atMax ? " disabled" : "";
+    // Kept in the layout when there is no remainder so finishing the last ball
+    // doesn't shift the grid (and with it the Speichern button) under the thumb.
+    const restHidden = atMax ? ' style="visibility:hidden"' : "";
     return `
       <div class="${cls}" role="group" aria-label="${LABELS[bucket]}, ${v} mal">
         <div class="counter-cell__dot"></div>
         <span class="counter-cell__label">${LABELS[bucket]}</span>
         <div class="counter-cell__controls">
-          <button class="counter-btn counter-btn--minus" data-bucket="${bucket}" data-d="-1" aria-label="Weniger"${minusDis}>−</button>
+          <button class="counter-btn counter-btn--minus" data-bucket="${bucket}" data-d="-1" aria-label="${LABELS[bucket]} verringern"${minusDis}>−</button>
           <span class="counter-cell__value">${v}</span>
-          <button class="counter-btn counter-btn--plus" data-bucket="${bucket}" data-d="1" aria-label="Mehr"${plusDis}>+</button>
+          <button class="counter-btn counter-btn--plus" data-bucket="${bucket}" data-d="1" aria-label="${LABELS[bucket]} erhöhen"${plusDis}>+</button>
         </div>
+        <button class="counter-cell__rest" data-rest="${bucket}"${restHidden}
+                aria-label="Alle ${rest} restlichen Bälle als ${LABELS[bucket]}">Rest +${rest}</button>
       </div>`;
   }).join("");
 
   grid.querySelectorAll(".counter-btn").forEach((btn) => {
     btn.onclick = () => step(btn.dataset.bucket, parseInt(btn.dataset.d, 10));
+  });
+  grid.querySelectorAll("[data-rest]").forEach((btn) => {
+    btn.onclick = () => fillRest(btn.dataset.rest);
   });
 
   renderProgress();
@@ -159,13 +141,22 @@ function renderGrid() {
 function step(bucket, d) {
   const next = local.dist[bucket] + d;
   if (next < 0) return;
-  if (d > 0 && assigned() >= local.selected.num_balls) {
+  if (d > 0 && remaining() === 0) {
     haptic("warning");
     return;
   }
   local.dist[bucket] = next;
   if (d > 0) local.lastBucket = bucket;
   haptic("light");
+  renderGrid();
+}
+
+function fillRest(bucket) {
+  const rest = remaining();
+  if (rest === 0) return;
+  local.dist[bucket] += rest;
+  local.lastBucket = bucket;
+  haptic("medium");
   renderGrid();
 }
 
@@ -186,10 +177,16 @@ function renderProgress() {
   updateSaveBtn();
 }
 
+// Any ball count can be saved, not just a full set: stats are normalised per
+// ball, and a session cut short (weather, course closing) is still data worth
+// keeping — requiring exactly num_balls just meant losing it.
 function updateSaveBtn() {
   const btn = $("putten-save");
-  const ready = local.selected && assigned() === local.selected.num_balls;
-  btn.disabled = !ready;
+  const total = assigned();
+  btn.disabled = !local.selected || total === 0;
+  btn.textContent = local.selected && total > 0 && total !== local.selected.num_balls
+    ? `${total} Bälle speichern`
+    : "Speichern";
 }
 
 // ----------------------------------------------------------- exercise picker
@@ -236,7 +233,11 @@ function openPicker() {
       const ex = local.exercises.find((x) => x.id === id);
       if (!ex) return;
       if (!confirm(`Übung „${ex.name}“ löschen?`)) return;
-      await api.send(`/api/exercises/${id}`, "DELETE");
+      const { ok } = await withSaveFeedback(
+        () => api.send(`/api/exercises/${id}`, "DELETE"),
+        { ok: "Übung gelöscht", fail: "Löschen fehlgeschlagen." },
+      );
+      if (!ok) return;
       if (local.selected && local.selected.id === id) local.selected = null;
       await loadExercises();
       loadStats();
@@ -259,12 +260,16 @@ async function createExercise() {
   const distance_cm = Math.round((parseFloat(distRaw) || 0) * 100);
   const num_balls = parseInt(ballsRaw, 10) || 10;
 
-  const ex = await api.send("/api/exercises", "POST", {
-    category: "putting",
-    name: name.trim(),
-    distance_cm,
-    num_balls,
-  });
+  const { ok, result: ex } = await withSaveFeedback(
+    () => api.send("/api/exercises", "POST", {
+      category: "putting",
+      name: name.trim(),
+      distance_cm,
+      num_balls,
+    }),
+    { ok: "Übung angelegt", fail: "Anlegen fehlgeschlagen." },
+  );
+  if (!ok) return;
   await loadExercises();
   selectExercise(ex);
   closeSheet();
@@ -272,8 +277,7 @@ async function createExercise() {
 
 // ----------------------------------------------------------- save
 async function saveSession() {
-  if (!local.selected) return;
-  if (assigned() !== local.selected.num_balls) {
+  if (!local.selected || assigned() === 0) {
     haptic("warning");
     return;
   }
@@ -285,15 +289,19 @@ async function saveSession() {
     for (let i = 0; i < local.dist[b]; i++) results.push(v);
   });
 
-  await api.send("/api/sessions", "POST", {
-    exercise_id: local.selected.id,
-    results,
-    note: null,
-  });
+  const { ok } = await withSaveFeedback(
+    () => api.send("/api/sessions", "POST", {
+      exercise_id: local.selected.id,
+      results,
+      note: null,
+    }),
+    { ok: `Gespeichert · ${results.length} Bälle` },
+  );
+  if (!ok) return; // keep the entered counts so the user can retry
 
   haptic("success");
   resetDist();
-  goStep(1); // ready for the next round
+  renderGrid(); // ready for the next round
   loadStats();
 }
 
@@ -343,8 +351,9 @@ async function renderStats() {
     ciLow: d.ci != null ? d.avg_ppb - d.ci : undefined,
     ciHigh: d.ci != null ? d.avg_ppb + d.ci : undefined,
   }));
+  // Putts/Ball improves downwards, which reads as a slump unless it says so.
   chart.innerHTML = points.length >= 2
-    ? `<div class="chart-card">${lineChart(points, { decimals: 2 })}</div>`
+    ? `<div class="chart-card">${lineChart(points, { decimals: 2 })}<p class="chart-hint">weniger ist besser</p></div>`
     : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 
   // history
@@ -359,8 +368,11 @@ async function renderStats() {
       const id = parseInt(btn.dataset.del, 10);
       if (!confirm("Diese Session löschen?")) return;
       haptic("light");
-      await api.send(`/api/sessions/${id}`, "DELETE");
-      loadStats();
+      const { ok } = await withSaveFeedback(
+        () => api.send(`/api/sessions/${id}`, "DELETE"),
+        { ok: "Session gelöscht", fail: "Löschen fehlgeschlagen." },
+      );
+      if (ok) loadStats();
     };
   });
 
@@ -386,8 +398,11 @@ function editSessionDate(id, playedAt) {
       const utc = `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`
         + ` ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
       haptic("light");
-      await api.send(`/api/sessions/${id}`, "PATCH", { played_at: utc });
-      loadStats();
+      const { ok } = await withSaveFeedback(
+        () => api.send(`/api/sessions/${id}`, "PATCH", { played_at: utc }),
+        { ok: "Datum geändert", fail: "Änderung fehlgeschlagen." },
+      );
+      if (ok) loadStats();
     }
     input.remove();
   };
@@ -413,87 +428,11 @@ function historyRow(s) {
     </div>`;
 }
 
-// ----------------------------------------------------- green photo analysis
-function initPhoto() {
-  const input = $("putten-photo-input");
-  $("putten-photo").onclick = () => input.click();
-  input.onchange = () => {
-    const file = input.files && input.files[0];
-    input.value = ""; // allow re-picking the same file
-    if (file) analyzePhoto(file);
-  };
-}
-
-// Render analysis (or loading/error) inline into step ②; result is shown for
-// insight only and is NOT persisted.
-function photoResult(html) {
-  $("putten-photo-intro").hidden = true;
-  const res = $("putten-photo-result");
-  res.innerHTML = html;
-  res.hidden = false;
-}
-
-async function analyzePhoto(file) {
-  haptic("light");
-  photoResult(`<div class="analyze-loading"><div class="spinner"></div><p>Foto wird ausgewertet …</p></div>`);
-  try {
-    // Upload the full-resolution photo — large phone-cam images are expected;
-    // the body-size limit lives in the ingress (see k8s/ingress.example.yaml),
-    // not here. Downscaling would throw away detail the CV/analysis needs.
-    const fd = new FormData();
-    fd.append("photo", file);
-    const r = await fetch("/api/analyze-putt", { method: "POST", body: fd });
-    if (!r.ok) throw new Error(await r.text());
-    showAnalysis(await r.json());
-    haptic("success");
-  } catch (e) {
-    let msg = String(e.message || e);
-    try { msg = JSON.parse(msg).detail || msg; } catch (_) { /* keep raw */ }
-    photoResult(`<p class="analyze-error">Analyse fehlgeschlagen.</p>
-                 <p class="analyze-error__detail">${escapeHtml(msg)}</p>
-                 <button id="putten-photo-retry" class="photo-btn" type="button">📷 Erneut versuchen</button>`);
-    const retry = $("putten-photo-retry");
-    if (retry) retry.onclick = () => resetPhotoStep();
-    haptic("warning");
-  }
-}
-
-function showAnalysis(d) {
-  let body = `<img class="analyze-img" src="data:image/png;base64,${d.annotated_png_b64}" alt="Annotiertes Green" />`;
-  body += `<div class="analyze-summary">`;
-  body += `<div class="analyze-line"><b>${d.total}</b> Bälle auf dem Grün`
-        + (d.balls_in_hole ? `, ${d.balls_in_hole} im Loch` : "") + `</div>`;
-  if (d.zones) {
-    const t = d.tendency, disp = d.dispersion;
-    const longTxt = `${Math.abs(t.long_cm)} cm ${t.long_cm >= 0 ? "zu kurz" : "zu lang"}`;
-    const latTxt = `${Math.abs(t.lat_cm)} cm ${t.lat_cm >= 0 ? "rechts" : "links"}`;
-    body += `<div class="analyze-zones">
-      <span class="zone zone--good">${d.zones.good} gut</span>
-      <span class="zone zone--bad">${d.zones.bad} schlecht</span>
-      <span class="zone zone--mist">${d.zones.mist} Mist</span>
-    </div>`;
-    body += `<div class="analyze-line">Tendenz: ${longTxt}, ${latTxt}</div>`;
-    body += `<div class="analyze-line analyze-line--muted">Streuung: längs ±${disp.long_cm} cm, quer ±${disp.lat_cm} cm</div>`;
-  } else {
-    body += `<div class="analyze-line analyze-line--muted">${d.within}/${d.total} innerhalb ${d.radius_m} m (keine Putterachse erkannt)</div>`;
-  }
-  body += `</div>`;
-  photoResult(body);
-}
-
 // ----------------------------------------------------------- init
 export function initPutting() {
   $("putten-picker").onclick = () => openPicker();
   $("stats-putten-picker").onclick = () => openPicker();
   $("putten-save").onclick = () => saveSession();
-  initPhoto();
-
-  // guided 3-step navigation
-  $("putten-play-next").onclick = () => { haptic("light"); goStep(2); };
-  $("putten-photo-back").onclick = () => { haptic("light"); goStep(1); };
-  $("putten-photo-skip").onclick = () => { haptic("light"); goStep(3); };
-  $("putten-photo-next").onclick = () => { haptic("light"); goStep(3); };
-  $("putten-count-back").onclick = () => { haptic("light"); goStep(2); };
 
   // main.js drives stats navigation; we just (re)render into the containers.
   window.__renderPuttenStats = () => renderStats();

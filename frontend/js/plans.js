@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, escapeHtml, onUserChange } from "./store.js";
-import { haptic } from "./ui.js";
+import { haptic, toast, withSaveFeedback } from "./ui.js";
 import { lineChart } from "./chart.js";
 
 // Plan content lives here, not in the backend — the API stores each run's
@@ -25,9 +25,12 @@ const PLAN_DEFS = {
       {
         title: "Kurze Putts", minutes: 8,
         desc: "Kreis mit 6 Bällen um 1 Putterlänge. Alle sechs lochen, sonst von vorn. Danach dasselbe aus 2 Putterlängen.",
+        // Anläufe, nicht Treffer: hier ist weniger besser. Ohne unit/lowerIsBetter
+        // stand in der Historie "2/6" wie eine Trefferquote, und der Trend lag
+        // neben Werten, bei denen mehr besser ist.
         fields: [
-          { key: "p1", short: "1 PL", type: "count", max: 6, groupSize: 3, label: "Anläufe, bis alle 6 aus 1 Putterlänge sitzen" },
-          { key: "p2", short: "2 PL", type: "count", max: 6, groupSize: 3, label: "Anläufe, bis alle 6 aus 2 Putterlängen sitzen" },
+          { key: "p1", short: "1 PL", type: "count", min: 1, max: 6, groupSize: 3, unit: "Anläufe", lowerIsBetter: true, label: "Anläufe, bis alle 6 aus 1 Putterlänge sitzen" },
+          { key: "p2", short: "2 PL", type: "count", min: 1, max: 6, groupSize: 3, unit: "Anläufe", lowerIsBetter: true, label: "Anläufe, bis alle 6 aus 2 Putterlängen sitzen" },
         ],
       },
       {
@@ -99,16 +102,48 @@ const PLAN_DEFS = {
 
 const DEFAULT_PLAN_KEY = "kurzspiel";
 
+// A Kurzspiel run spans ~50 minutes of training and only reaches the backend on
+// the last step. Without a draft in localStorage a screen lock, a reload or the
+// browser evicting the tab throws the whole session away.
+const LS_DRAFT = "scratchlab.planDraft";
+
 const local = {
   planKey: null,
   plan: null,
   data: {},
   step: 1,
-  plansRuns: [],   // last-fetched history for the current plan (chart re-renders reuse this, no refetch)
+  // The Statistik tab picks its plan independently of the one being recorded —
+  // sharing the selection meant looking at Range history wiped a running
+  // Kurzspiel draft.
+  statsPlanKey: DEFAULT_PLAN_KEY,
+  plansRuns: [],   // last-fetched history for the stats plan (chart re-renders reuse this, no refetch)
   chartMetric: null, // key of the field currently charted in the Pläne stats segment
 };
 
 function $(id) { return document.getElementById(id); }
+
+// ----------------------------------------------------------- draft
+function saveDraft() {
+  try {
+    localStorage.setItem(LS_DRAFT, JSON.stringify({
+      planKey: local.planKey, step: local.step, data: local.data,
+    }));
+  } catch (_) { /* private mode / quota — the run still works, just unsaved */ }
+}
+
+function clearDraft() {
+  try { localStorage.removeItem(LS_DRAFT); } catch (_) { /* ignore */ }
+}
+
+function readDraft() {
+  try {
+    const raw = localStorage.getItem(LS_DRAFT);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || !PLAN_DEFS[d.planKey] || !d.data) return null;
+    return d;
+  } catch (_) { return null; }
+}
 
 // "18.06. 14:30" within the last 11 months, "18.06.24 14:30" once older —
 // mirrors putting.js's shortDate (not exported there, so duplicated here).
@@ -197,17 +232,23 @@ function paneHtml(block, idx) {
 }
 
 // ----------------------------------------------------------- field wiring
+// Every wire* function also restores the value it finds in local.data, so a
+// draft restored from localStorage repopulates the controls.
 function wireNumber(idx, f) {
   const input = $(`plan-input-${idx}-${f.key}`);
+  if (local.data[f.key] != null) input.value = local.data[f.key];
   input.addEventListener("input", () => {
     local.data[f.key] = input.value === "" ? null : Number(input.value);
+    saveDraft();
   });
 }
 
 function wireText(idx, f) {
   const input = $(`plan-input-${idx}-${f.key}`);
+  if (local.data[f.key] != null) input.value = local.data[f.key];
   input.addEventListener("input", () => {
     local.data[f.key] = input.value === "" ? null : input.value;
+    saveDraft();
   });
 }
 
@@ -225,45 +266,55 @@ function wireGap(idx, f) {
       local.data[f.key] = null;
       out.textContent = "Gap: –";
     }
+    saveDraft();
   };
   $(`plan-input-${idx}-${ak}`).addEventListener("input", update);
   $(`plan-input-${idx}-${bk}`).addEventListener("input", update);
+  update(); // reflect a restored draft
 }
 
-// Single-select 1–N picker: tap the number that matches the result (e.g.
+// Single-select 0–N picker: tap the number that matches the result (e.g.
 // "10" for 10 of 12) — no keyboard, and no per-ball toggling either. Tapping
-// the already-selected number clears it back to 0. Grouped in rows of
-// f.groupSize (defaults to 4) so it always reads as fixed rows, not however
-// many happen to fit the screen width.
+// the already-selected number clears the field back to "not entered".
+//
+// 0 is a selectable value, and *no* selection means untouched. Those used to be
+// the same thing: the field was pre-set to 0, so skipping a block still saved a
+// 0 that the history and the trend chart then showed as a real result.
+//
+// Grouped in rows of f.groupSize (defaults to 4) so it always reads as fixed
+// rows, not however many happen to fit the screen width.
 function wireCount(idx, f) {
   const wrap = $(`plan-field-${idx}-${f.key}`);
   const groupSize = f.groupSize || 4;
-  local.data[f.key] = 0;
+  const current = local.data[f.key];
+  const min = f.min ?? 0; // "Anläufe" start at 1; result counts start at 0
 
   const dots = [];
-  for (let i = 1; i <= f.max; i++) {
+  for (let i = min; i <= f.max; i++) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "plan-dot";
-    b.dataset.selected = "0";
+    const on = current === i;
+    b.dataset.selected = on ? "1" : "0";
     b.textContent = String(i);
     b.setAttribute("aria-label", `${f.label}: ${i}`);
-    b.setAttribute("aria-pressed", "false");
+    b.setAttribute("aria-pressed", String(on));
     b.onclick = () => {
       const wasSelected = b.dataset.selected === "1";
       haptic("light");
       dots.forEach((d) => { d.dataset.selected = "0"; d.setAttribute("aria-pressed", "false"); });
-      local.data[f.key] = 0;
+      local.data[f.key] = null;
       if (!wasSelected) {
         b.dataset.selected = "1";
         b.setAttribute("aria-pressed", "true");
         local.data[f.key] = i;
       }
+      saveDraft();
     };
     dots.push(b);
   }
 
-  for (let g = 0; g * groupSize < f.max; g++) {
+  for (let g = 0; g * groupSize < dots.length; g++) {
     const group = document.createElement("div");
     group.className = "plan-punch__group";
     dots.slice(g * groupSize, g * groupSize + groupSize).forEach((b) => group.appendChild(b));
@@ -286,7 +337,13 @@ function wireGreenScale(idx, f) {
     stimpWrap.hidden = mode !== "stimp";
     toggle.textContent = mode === "scale" ? "oder Stimp-Wert eintragen" : "oder 1–5-Skala";
   }
-  setMode("scale");
+  // Restore whichever mode the draft was in.
+  setMode(local.data.green_stimp != null ? "stimp" : "scale");
+  if (local.data.green_stimp != null) stimpInput.value = local.data.green_stimp;
+  if (local.data.green_scale != null) {
+    const btn = scaleGroup.querySelector(`.dir-btn[data-v="${local.data.green_scale}"]`);
+    if (btn) btn.classList.add("dir-btn--selected");
+  }
 
   scaleGroup.querySelectorAll(".dir-btn").forEach((btn) => {
     btn.onclick = () => {
@@ -295,6 +352,7 @@ function wireGreenScale(idx, f) {
       haptic("light");
       local.data.green_scale = parseInt(btn.dataset.v, 10);
       local.data.green_stimp = null;
+      saveDraft();
     };
   });
 
@@ -304,14 +362,17 @@ function wireGreenScale(idx, f) {
     setMode(goingToStimp ? "stimp" : "scale");
     if (goingToStimp) {
       local.data.green_scale = null;
+      scaleGroup.querySelectorAll(".dir-btn").forEach((b) => b.classList.remove("dir-btn--selected"));
     } else {
       local.data.green_stimp = null;
       stimpInput.value = "";
     }
+    saveDraft();
   };
 
   stimpInput.addEventListener("input", () => {
     local.data.green_stimp = stimpInput.value === "" ? null : Number(stimpInput.value);
+    saveDraft();
   });
 }
 
@@ -327,6 +388,7 @@ function goStep(n) {
     dot.classList.toggle("step-dot--done", s < n);
   });
   updateNav();
+  saveDraft();
 }
 
 // Persistent footer nav (outside the scrollable pane) — behavior depends on
@@ -346,19 +408,44 @@ function updateNav() {
 }
 
 // ----------------------------------------------------------- plan selection
-// Only two fixed plans exist, so a two-tab segmented control (record view +
-// the Statistik "Pläne" segment share the same selection) beats a sheet picker.
-function updateSegButtons() {
-  document.querySelectorAll(".seg-control__btn[data-key]").forEach((b) => {
-    const on = b.dataset.key === local.planKey;
+// Only two fixed plans exist, so a two-tab segmented control beats a sheet
+// picker. The record view and the Statistik segment each keep their own
+// selection — a shared one meant that opening Range history discarded the
+// Kurzspiel run currently being filled in.
+function segButtons(scopeId) {
+  return document.querySelectorAll(`#${scopeId} .seg-control__btn[data-key]`);
+}
+
+function markSeg(scopeId, key) {
+  segButtons(scopeId).forEach((b) => {
+    const on = b.dataset.key === key;
     b.classList.toggle("seg-control__btn--active", on);
     b.setAttribute("aria-selected", String(on));
   });
 }
 
+function updateSegButtons() {
+  markSeg("view-plans", local.planKey);
+  markSeg("stats-pane-plaene", local.statsPlanKey);
+}
+
 function wirePlanSegButtons() {
-  document.querySelectorAll(".seg-control__btn[data-key]").forEach((b) => {
-    b.onclick = () => { haptic("light"); selectPlan(b.dataset.key); };
+  segButtons("view-plans").forEach((b) => {
+    b.onclick = () => {
+      if (b.dataset.key === local.planKey) return;
+      if (hasAnyData() && !confirm(
+        `Der laufende ${local.plan.label}-Durchlauf wird verworfen. Trotzdem wechseln?`)) return;
+      haptic("light");
+      selectPlan(b.dataset.key);
+    };
+  });
+  segButtons("stats-pane-plaene").forEach((b) => {
+    b.onclick = () => {
+      haptic("light");
+      local.statsPlanKey = b.dataset.key;
+      updateSegButtons();
+      renderPlansHistory();
+    };
   });
 }
 
@@ -384,14 +471,18 @@ function renderPlanUI() {
 
   $("plans-nav-back").onclick = () => { if (local.step > 1) { haptic("light"); goStep(local.step - 1); } };
 
-  goStep(1);
+  goStep(local.step);
 }
 
-function selectPlan(key) {
+// Starts a fresh run. `keep` restores an in-progress draft instead.
+function selectPlan(key, keep = null) {
   hideDone();
   local.planKey = PLAN_DEFS[key] ? key : DEFAULT_PLAN_KEY;
   local.plan = PLAN_DEFS[local.planKey];
-  local.data = {};
+  local.data = keep ? { ...keep.data } : {};
+  const total = local.plan.blocks.length;
+  local.step = keep ? Math.min(Math.max(1, keep.step || 1), total) : 1;
+  if (!keep) clearDraft();
   updateSegButtons();
   renderPlanUI();
   loadPlansHistory();
@@ -413,21 +504,25 @@ function hideDone() {
   $("plans-footer").hidden = false;
 }
 
-// count/greenScale fields default to 0 for "untouched", so a run where
-// every value is still null/empty/0 was never actually filled in — saving
-// it just adds a blank card to the history.
+// Untouched fields are null/absent, so anything else counts as entered — a
+// deliberate 0 ("keinen einzigen geschafft") included.
 function hasAnyData() {
-  return Object.values(local.data).some((v) => v !== null && v !== undefined && v !== "" && v !== 0);
+  return Object.values(local.data).some((v) => v !== null && v !== undefined && v !== "");
 }
 
 async function saveRun() {
   if (!hasAnyData()) {
     haptic("warning");
-    alert("Trag mindestens einen Wert ein, bevor du speicherst.");
+    toast("Trag mindestens einen Wert ein, bevor du speicherst.", "error");
     return;
   }
-  await api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } });
+  const { ok } = await withSaveFeedback(
+    () => api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } }),
+  );
+  if (!ok) return; // draft stays intact so the user can retry
+
   haptic("success");
+  clearDraft();
   showDone(); // stay on a confirmation screen instead of dropping back to step 1
   loadPlansHistory();
 }
@@ -438,7 +533,8 @@ async function saveRun() {
 // fields wrapping naturally (text fields full-width) needs no side-scroll.
 function flatFields(plan) {
   return plan.blocks.flatMap((b) => b.fields.map((f) => ({
-    key: f.key, short: f.short, type: f.type, max: f.max, suffix: f.suffix, wide: f.type === "text",
+    key: f.key, short: f.short, type: f.type, max: f.max, suffix: f.suffix,
+    unit: f.unit, lowerIsBetter: f.lowerIsBetter, wide: f.type === "text",
   })));
 }
 
@@ -457,7 +553,7 @@ function historyCard(r, columns) {
     } else {
       const v = d[c.key];
       value = (v === null || v === undefined || v === "") ? null
-        : c.type === "count" ? `${v}/${c.max}`
+        : c.type === "count" ? (c.unit ? `${v} ${c.unit}` : `${v}/${c.max}`)
         : String(v);
     }
     return `
@@ -509,8 +605,11 @@ function renderChart(plan) {
     .reverse() // runs arrive newest-first; chart wants oldest -> newest
     .map((r) => ({ label: chartLabel(r.played_at), value: Number(r.data[field.key]) }));
 
+  // Most plan metrics improve upwards; "Anläufe" improves downwards, so the
+  // chart says which way is good instead of leaving the line to be misread.
+  const hint = `<p class="chart-hint">${field.lowerIsBetter ? "weniger ist besser" : "mehr ist besser"}</p>`;
   chartEl.innerHTML = points.length >= 2
-    ? `<div class="chart-card">${lineChart(points, { unit: field.suffix === "m" ? "m" : "", decimals: field.type === "gap" ? 1 : 0 })}</div>`
+    ? `<div class="chart-card">${lineChart(points, { unit: field.suffix === "m" ? "m" : "", decimals: field.type === "gap" ? 1 : 0 })}${hint}</div>`
     : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 }
 
@@ -519,9 +618,9 @@ async function loadPlansHistory() {
 }
 
 async function renderPlansHistory() {
-  if (!local.plan) return;
-  const key = local.planKey;
-  const plan = local.plan;
+  const key = local.statsPlanKey;
+  const plan = PLAN_DEFS[key];
+  if (!plan) return;
   updateSegButtons();
 
   const hist = $("plans-history");
@@ -545,8 +644,11 @@ async function renderPlansHistory() {
     btn.onclick = async () => {
       if (!confirm("Diesen Durchlauf löschen?")) return;
       haptic("light");
-      await api.send(`/api/plan-runs/${btn.dataset.del}`, "DELETE");
-      renderPlansHistory();
+      const { ok } = await withSaveFeedback(
+        () => api.send(`/api/plan-runs/${btn.dataset.del}`, "DELETE"),
+        { ok: "Durchlauf gelöscht", fail: "Löschen fehlgeschlagen." },
+      );
+      if (ok) renderPlansHistory();
     };
   });
   hist.querySelectorAll("[data-edit]").forEach((btn) => {
@@ -571,8 +673,11 @@ function editRunDate(id, playedAt) {
       const utc = `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`
         + ` ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}`;
       haptic("light");
-      await api.send(`/api/plan-runs/${id}`, "PATCH", { played_at: utc });
-      renderPlansHistory();
+      const { ok } = await withSaveFeedback(
+        () => api.send(`/api/plan-runs/${id}`, "PATCH", { played_at: utc }),
+        { ok: "Datum geändert", fail: "Änderung fehlgeschlagen." },
+      );
+      if (ok) renderPlansHistory();
     }
     input.remove();
   };
@@ -589,5 +694,12 @@ export function initPlans() {
 
   onUserChange(() => loadPlansHistory());
 
-  selectPlan(DEFAULT_PLAN_KEY);
+  const draft = readDraft();
+  if (draft) {
+    local.statsPlanKey = draft.planKey;
+    selectPlan(draft.planKey, draft);
+    toast("Angefangener Durchlauf wiederhergestellt.");
+  } else {
+    selectPlan(DEFAULT_PLAN_KEY);
+  }
 }

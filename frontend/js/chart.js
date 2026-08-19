@@ -10,8 +10,10 @@ export function lineChart(points, opts = {}) {
   const dec = opts.decimals ?? 1;
   const fmt = (v) => v.toFixed(dec);
   // viewBox coordinate space; rendered responsively via CSS width.
-  const W = 320, H = 120;
-  const padL = 32, padR = 8, padT = 12, padB = 22;
+  // padL fits a "139.0 m" tick without the label running into the axis line;
+  // padB leaves a row for the date labels under it.
+  const W = 320, H = 128;
+  const padL = 44, padR = 12, padT = 12, padB = 34;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
 
@@ -54,11 +56,29 @@ export function lineChart(points, opts = {}) {
     })
     .join("");
 
-  const baseY = (padT + innerH).toFixed(1);
-  return `<svg viewBox="0 0 ${W} ${H}" class="line-chart" role="img">
-    <line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" class="chart-axis"/>
+  const baseY = padT + innerH;
+
+  // X axis. Every label would overlap, and the dates only lived in the <title>
+  // tooltip — which a phone never shows, so the chart covered an unknown
+  // period. Show at most 4, evenly spaced, always including first and last.
+  const maxLabels = 4;
+  const idxs = n <= maxLabels
+    ? points.map((_, i) => i)
+    : Array.from({ length: maxLabels },
+        (_, k) => Math.round((k / (maxLabels - 1)) * (n - 1)));
+  const xLabels = [...new Set(idxs)].map((i) => {
+    // The outer labels are anchored inward so they cannot clip at the edges.
+    const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
+    const cx = i === 0 ? padL : i === n - 1 ? W - padR : x(i);
+    return `<text x="${cx.toFixed(1)}" y="${(baseY + 16).toFixed(1)}" text-anchor="${anchor}" class="chart-tick">${escapeXml(points[i].label)}</text>`;
+  }).join("");
+
+  const span = n > 1 ? `${escapeXml(points[0].label)} bis ${escapeXml(points[n - 1].label)}` : escapeXml(points[0].label);
+  return `<svg viewBox="0 0 ${W} ${H}" class="line-chart" role="img" aria-label="Verlauf ${span}">
+    <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${W - padR}" y2="${baseY.toFixed(1)}" class="chart-axis"/>
     <text x="2" y="${(padT + 4).toFixed(1)}" class="chart-tick">${fmt(max)}${unit}</text>
-    <text x="2" y="${baseY}" class="chart-tick">${fmt(min)}${unit}</text>
+    <text x="2" y="${(baseY - 3).toFixed(1)}" class="chart-tick">${fmt(min)}${unit}</text>
+    ${xLabels}
     ${whiskers}
     <polyline points="${linePts}" class="chart-line" fill="none"/>
     ${dots}

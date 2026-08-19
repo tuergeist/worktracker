@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, store, escapeHtml } from "./store.js";
-import { haptic } from "./ui.js";
+import { haptic, withSaveFeedback } from "./ui.js";
 
 let clubs = [];
 
@@ -33,8 +33,14 @@ function renderClubs() {
     btn.onclick = async () => {
       const id = parseInt(btn.dataset.delClub, 10);
       const c = clubs.find((x) => x.id === id);
-      if (!c || !confirm(`Schläger „${c.abbr} · ${c.name}“ löschen?`)) return;
-      await api.send(`/api/clubs/${id}`, "DELETE");
+      if (!c || !confirm(
+        `Schläger „${c.abbr} · ${c.name}“ löschen? Die erfassten Schläge dieses Schlägers gehen mit.`
+      )) return;
+      const { ok } = await withSaveFeedback(
+        () => api.send(`/api/clubs/${id}`, "DELETE"),
+        { ok: "Schläger gelöscht", fail: "Löschen fehlgeschlagen." },
+      );
+      if (!ok) return;
       await loadClubs();
       refreshRangeClubs();
       renderClubs();
@@ -60,11 +66,15 @@ async function addClubFlow() {
   if (!abbr || !abbr.trim()) return;
   const name = prompt("Bezeichnung (optional):", abbr.trim());
   const sort = clubs.length ? Math.max(...clubs.map((c) => c.sort_order)) + 10 : 100;
-  await api.send("/api/clubs", "POST", {
-    name: (name && name.trim()) || abbr.trim(),
-    abbr: abbr.trim(),
-    sort_order: sort,
-  });
+  const { ok } = await withSaveFeedback(
+    () => api.send("/api/clubs", "POST", {
+      name: (name && name.trim()) || abbr.trim(),
+      abbr: abbr.trim(),
+      sort_order: sort,
+    }),
+    { ok: "Schläger angelegt", fail: "Anlegen fehlgeschlagen." },
+  );
+  if (!ok) return;
   await loadClubs();
   refreshRangeClubs();
   haptic("light");

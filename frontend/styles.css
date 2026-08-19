@@ -16,14 +16,20 @@
   --card:          #ffffff;
   --divider:       #e2e6e2;
   --text-primary:  #1c241c;
-  --text-muted:    #6b766b;
+  /* 6.3:1 on --surface. The previous #6b766b sat at 4.4:1 — under WCAG AA on
+     the app background, which is where most of this app's secondary text is. */
+  --text-muted:    #525d52;
+  /* "nothing entered yet" placeholder; 3:1 on white, i.e. the large-text floor.
+     Using --divider here made the zeros in the counter grid invisible. */
+  --text-faint:    #8b998b;
   --error:         #c62828;
   --on-primary:    #ffffff;
   --r-sm:   6px;
   --r-md:   12px;
   --r-lg:   16px;
   --r-pill: 999px;
-  --touch-min:  48px;
+  --touch-min:  48px;   /* list rows */
+  --tap-min:    44px;   /* floor for every tappable control */
   --input-height: 52px;
   --nav-bar-height: 64px;
 }
@@ -31,6 +37,8 @@
 html, body {
   height: 100%;
   background: var(--surface);
+  /* Type is sized in rem throughout so the browser's own text-size / zoom
+     setting takes effect — with px it did nothing. */
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   color: var(--text-primary);
@@ -70,14 +78,14 @@ html, body {
 .brand { display: flex; align-items: center; gap: 9px; }
 .brand__logo { width: 26px; height: 26px; flex-shrink: 0; }
 .brand__title {
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 .settings-btn {
-  width: 38px;
-  height: 38px;
+  width: var(--tap-min);
+  height: var(--tap-min);
   border-radius: 50%;
   background: var(--surface);
   border: 1px solid var(--divider);
@@ -90,7 +98,7 @@ html, body {
   outline: none;
   flex-shrink: 0;
 }
-.settings-btn svg { width: 19px; height: 19px; fill: var(--text-muted); }
+.settings-btn svg { width: 21px; height: 21px; fill: var(--text-muted); }
 
 /* ── Main / views ───────────────────────────────────────── */
 #main {
@@ -109,7 +117,7 @@ html, body {
 
 /* ── Picker strip (Putten) ──────────────────────────────── */
 .picker-strip {
-  height: 52px;
+  height: 60px;
   background: var(--card);
   border-bottom: 1px solid var(--divider);
   display: flex;
@@ -124,14 +132,14 @@ html, body {
   background: var(--surface);
   border: 1.5px solid var(--divider);
   border-radius: var(--r-md);
-  padding: 0 14px;
-  height: 36px;
-  font-size: 14px;
+  padding: 0 16px;
+  height: var(--tap-min);
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
 }
-.picker-strip__caret { font-size: 11px; color: var(--text-muted); margin-left: 2px; }
+.picker-strip__caret { font-size: 0.8125rem; color: var(--text-muted); margin-left: 2px; }
 
 /* ── Record body ────────────────────────────────────────── */
 .record-body {
@@ -147,8 +155,11 @@ html, body {
   gap: 0;
   overflow-y: auto;
 }
+/* Putten records in one screen: the counter grid fills the body, Speichern
+   sits in the shared .footer-bar like Range and Pläne. */
+.record-body--count { padding: 12px 12px 10px; gap: 10px; justify-content: center; }
 
-/* ── Guided step flow (Putten) ──────────────────────────── */
+/* ── Guided step flow (Pläne) ───────────────────────────── */
 .record-body--steps { padding: 10px 12px 8px; gap: 0; }
 
 .step-indicator {
@@ -162,7 +173,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  opacity: 0.45;
+  opacity: 0.8;
   transition: opacity 0.2s ease;
 }
 .step-dot--active, .step-dot--done { opacity: 1; }
@@ -174,13 +185,13 @@ html, body {
   border-radius: var(--r-pill);
   background: var(--surface);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 700;
   flex: none;
 }
 .step-dot--active .step-dot__num { background: var(--primary); color: #fff; }
 .step-dot--done .step-dot__num { background: var(--primary-light); color: var(--primary-dark); }
-.step-dot__label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.step-dot__label { font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); }
 .step-dot--active .step-dot__label { color: var(--primary-dark); }
 
 .step-pane {
@@ -190,27 +201,6 @@ html, body {
   min-height: 0;
   gap: 10px;
 }
-#putten-step-play[hidden], #putten-step-photo[hidden],
-#putten-step-count[hidden], #putten-photo-result[hidden],
-#putten-photo-intro[hidden] { display: none; }
-
-.step-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 8px;
-}
-.step-icon { font-size: 44px; line-height: 1; }
-.step-headline { font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 4px 0 0; }
-.step-lead { font-size: 15px; color: var(--text-muted); max-width: 16rem; line-height: 1.4; margin: 0; }
-.step-lead b { color: var(--text-primary); }
-
-.step-photo-body { flex: 1; display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
-.step-photo-result { display: flex; flex-direction: column; gap: 8px; }
-
 .step-nav {
   display: flex;
   align-items: center;
@@ -223,15 +213,16 @@ html, body {
    on narrow screens only the first button stayed visible. Size to content. */
 .step-nav .link-secondary { flex: none; width: auto; min-height: 48px; padding: 0 12px; }
 
-.footer-bar--end { justify-content: flex-end; }
-
 /* ── Counter grid (Putten) ──────────────────────────────── */
 .counter-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: 1fr;
   gap: 10px;
-  flex: 1;
+  /* Capped rather than flex:1 — filling the whole body on a tall phone left the
+     numbers floating in the middle of oversized cards with the reach getting
+     worse, not better. Shrinks below the basis on small screens. */
+  flex: 0 1 380px;
   min-height: 0;
 }
 .counter-cell {
@@ -244,7 +235,7 @@ html, body {
   justify-content: center;
   padding: 12px 8px;
   position: relative;
-  min-height: 120px;
+  min-height: 152px;
   transition: border-color 0.15s;
 }
 .counter-cell--active {
@@ -252,7 +243,7 @@ html, body {
   background: linear-gradient(145deg, #ffffff 0%, #f6faf6 100%);
 }
 .counter-cell__label {
-  font-size: 11px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.4px;
@@ -273,7 +264,7 @@ html, body {
   border: none;
   background: var(--surface);
   color: var(--text-primary);
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 300;
   cursor: pointer;
   display: flex;
@@ -284,7 +275,7 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .counter-btn:active { background: var(--divider); transform: scale(0.94); }
-.counter-btn:disabled { opacity: 0.3; cursor: default; }
+.counter-btn:disabled { opacity: 0.45; cursor: default; }
 .counter-btn--minus { color: var(--text-muted); }
 .counter-btn--plus { color: var(--primary); background: var(--primary-light); }
 .counter-btn--plus:active { background: #c8e6c9; }
@@ -301,7 +292,29 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 .counter-cell--active .counter-cell__value { color: var(--primary-dark); }
-.counter-cell--zero .counter-cell__value { color: var(--divider); }
+.counter-cell--zero .counter-cell__value { color: var(--text-faint); }
+/* "Rest +8": assign every still-unassigned ball to this cell in one tap. */
+.counter-cell__rest {
+  margin-top: 10px;
+  min-height: var(--tap-min);
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--divider);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+.counter-cell__rest:active { background: var(--divider); }
+.counter-cell--active .counter-cell__rest {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+  background: var(--primary-light);
+}
+
 .counter-cell__dot {
   position: absolute;
   top: 10px;
@@ -336,13 +349,13 @@ html, body {
   border-radius: var(--r-pill);
   transition: width 0.3s ease;
 }
-.progress-label { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.progress-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 .progress-label--complete { color: var(--primary); }
-.progress-checkmark { font-size: 14px; color: var(--primary); }
+.progress-checkmark { font-size: 0.9375rem; color: var(--primary); }
 
 /* ── Club strip / chips (Range) ─────────────────────────── */
 .club-strip {
-  height: 52px;
+  height: 60px;
   background: var(--card);
   border-bottom: 1px solid var(--divider);
   display: flex;
@@ -369,10 +382,10 @@ html, body {
   background: var(--surface);
   border: 1.5px solid var(--divider);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 0.9375rem;
   font-weight: 600;
-  padding: 0 14px;
-  height: 36px;
+  padding: 0 16px;
+  height: var(--tap-min);
   border-radius: var(--r-pill);
   cursor: pointer;
   flex-shrink: 0;
@@ -386,7 +399,7 @@ html, body {
 .club-chip__badge {
   background: rgba(255,255,255,0.22);
   color: #fff;
-  font-size: 11px;
+  font-size: 0.8125rem;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: var(--r-sm);
@@ -396,7 +409,7 @@ html, body {
 /* ── Range summary line ─────────────────────────────────── */
 .range-summary {
   text-align: center;
-  font-size: 12px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-muted);
   margin-bottom: 12px;
@@ -416,11 +429,11 @@ html, body {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 40px;
+  height: 48px;
   border-radius: var(--r-md);
   border: 1.5px solid var(--divider);
   background: var(--card);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
@@ -432,7 +445,7 @@ html, body {
   color: #fff;
   box-shadow: 0 3px 10px rgba(46,125,50,0.3);
 }
-.bucket--muted { opacity: 0.4; }
+.bucket--muted { opacity: 0.55; }
 
 /* ── Exact override ─────────────────────────────────────── */
 .exact-override {
@@ -441,24 +454,26 @@ html, body {
   justify-content: space-between;
   width: 100%;
   margin-bottom: 10px;
-  font-size: 0.8rem;
+  font-size: 0.8125rem;
   color: var(--text-muted);
 }
 .exact-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: var(--tap-min);
   background: #ffffff;
-  border: 1px solid var(--divider);
+  border: 1.5px solid var(--divider);
   border-radius: var(--r-pill);
-  padding: 6px 12px;
-  font-size: 14px;
+  padding: 0 16px;
+  font-size: 0.9375rem;
   font-weight: 500;
   color: var(--text-primary);
   cursor: pointer;
   line-height: 1;
 }
-.exact-chip__pen { opacity: 0.5; font-size: 12px; }
+.exact-chip__pen { opacity: 0.5; font-size: 0.8125rem; }
 
 /* ── Exact-value slider ─────────────────────────────────── */
 .slider-wrap {
@@ -503,12 +518,12 @@ html, body {
 .slider-out {
   min-width: 56px;
   text-align: right;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--primary-dark);
   font-variant-numeric: tabular-nums;
 }
-.slider-wrap--muted { opacity: 0.4; }
+.slider-wrap--muted { opacity: 0.55; }
 
 /* ── Tag pills ──────────────────────────────────────────── */
 .tag-row {
@@ -518,11 +533,14 @@ html, body {
   margin: 8px 0;
 }
 .tag-pill {
-  border: 1px solid var(--divider);
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+  border: 1.5px solid var(--divider);
   background: #fff;
   border-radius: var(--r-pill);
-  padding: 6px 12px;
-  font-size: 0.82rem;
+  padding: 0 16px;
+  font-size: 0.875rem;
   color: var(--text-primary);
   cursor: pointer;
 }
@@ -545,7 +563,7 @@ html, body {
   height: 48px;
   border: none;
   background: var(--card);
-  font-size: 14px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
@@ -570,7 +588,7 @@ html, body {
   height: var(--input-height);
   background: var(--primary);
   color: var(--on-primary);
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 700;
   border: none;
   border-radius: var(--r-pill);
@@ -580,16 +598,16 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .btn-primary:active { background: var(--primary-dark); transform: scale(0.97); }
-.btn-primary:disabled { opacity: 0.4; cursor: default; }
+.btn-primary:disabled { opacity: 0.5; cursor: default; }
 .btn-primary:disabled:active { background: var(--primary); transform: none; }
 .link-secondary {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 40px;
+  min-height: var(--tap-min);
   margin-top: 2px;
-  font-size: 13px;
+  font-size: 0.9375rem;
   color: var(--text-muted);
   background: transparent;
   border: none;
@@ -598,69 +616,31 @@ html, body {
 }
 .link-secondary:hover { color: var(--primary); }
 
-/* ── Green photo button + analysis sheet ────────────────── */
-.photo-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  height: 44px;
-  margin-top: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--primary-dark);
-  background: var(--primary-light);
-  border: 1px solid var(--divider);
+/* ── Toast (save confirmation / failure) ────────────────── */
+.toast {
+  position: fixed;
+  left: 50%;
+  /* clears the tab bar plus a record view's footer bar, so it never covers the
+     Speichern button it is reporting on */
+  bottom: calc(var(--nav-bar-height) + env(safe-area-inset-bottom) + 92px);
+  transform: translate(-50%, 8px);
+  z-index: 50;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 13px 18px;
   border-radius: var(--r-pill);
-  cursor: pointer;
-}
-.photo-btn:active { transform: scale(0.98); }
-
-.analyze-img {
-  width: 100%;
-  border-radius: var(--r-md);
-  display: block;
-  margin-bottom: 12px;
-}
-.analyze-summary { display: flex; flex-direction: column; gap: 6px; }
-.analyze-line { font-size: 15px; color: var(--text-primary); }
-.analyze-line--muted { font-size: 13px; color: var(--text-muted); }
-.analyze-zones { display: flex; gap: 8px; margin: 4px 0; }
-.zone {
-  flex: 1;
-  text-align: center;
-  padding: 8px 0;
-  border-radius: var(--r-sm);
-  font-size: 13px;
-  font-weight: 600;
+  background: #223022;
   color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0,0,0,.22);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
 }
-.zone--good { background: #2e7d32; }
-.zone--bad  { background: #ef8c00; }
-.zone--mist { background: var(--error); }
-
-.analyze-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  padding: 28px 0;
-  color: var(--text-muted);
-}
-.spinner {
-  width: 34px;
-  height: 34px;
-  border: 3px solid var(--divider);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-
-.analyze-error { color: var(--error); font-weight: 600; }
-.analyze-error__detail { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.toast--open { opacity: 1; transform: translate(-50%, 0); }
+.toast--error { background: var(--error); }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 
 /* ── Stats views ────────────────────────────────────────── */
 .view--stats { overflow: hidden; }
@@ -679,7 +659,7 @@ html, body {
   align-items: center;
   gap: 4px;
   color: var(--primary);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 500;
   cursor: pointer;
   background: transparent;
@@ -688,7 +668,7 @@ html, body {
   padding: 0;
 }
 .sub-header__title {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
   text-align: center;
@@ -704,7 +684,7 @@ html, body {
   gap: 24px;
 }
 .section-heading {
-  font-size: 14px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -730,11 +710,11 @@ html, body {
 .seg-control--inline { margin: 0; }
 .seg-control__btn {
   flex: 1;
-  min-height: 40px;
+  min-height: var(--tap-min);
   border: none;
   background: transparent;
   border-radius: calc(var(--r-md) - 4px);
-  font-size: 14px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
@@ -781,7 +761,7 @@ html, body {
   gap: 10px;
   min-height: var(--touch-min);
   padding: 12px 16px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--text-primary);
 }
 .settings-row + .settings-row { border-top: 1px solid var(--divider); }
@@ -808,7 +788,7 @@ html, body {
   box-shadow: 0 1px 3px rgba(46,125,50,.12), 0 0 0 1px rgba(46,125,50,.18);
 }
 .stat-card__number {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1;
@@ -816,7 +796,7 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 .stat-card.highlight .stat-card__number { color: var(--primary-dark); }
-.stat-card__label { font-size: 12px; color: var(--text-muted); font-weight: 400; line-height: 1.3; }
+.stat-card__label { font-size: 0.8125rem; color: var(--text-muted); font-weight: 400; line-height: 1.3; }
 
 /* chart card */
 .chart-card {
@@ -830,7 +810,11 @@ html, body {
 .chart-dot { fill: var(--primary-dark); }
 .chart-axis { stroke: var(--divider); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .chart-ci { stroke: var(--primary); stroke-width: 1; opacity: 0.4; vector-effect: non-scaling-stroke; }
-.chart-tick { fill: var(--text-muted); font-size: 9px; }
+/* SVG user units, not CSS px: the chart's viewBox (320 wide) is stretched to
+   the card width, so this is multiplied by ~1.4 on a phone. rem here would be
+   scaled twice and come out oversized. */
+.chart-tick { fill: var(--text-muted); font-size: 10px; }
+.chart-hint { margin-top: 8px; text-align: right; font-size: 0.8125rem; color: var(--text-muted); }
 
 /* history list */
 .history-card {
@@ -844,15 +828,19 @@ html, body {
   grid-template-columns: 92px 1fr auto auto;
   align-items: center;
   gap: 8px;
-  padding: 13px 16px;
+  padding: 6px 8px 6px 16px;
 }
 .history-row + .history-row { border-top: 1px solid var(--divider); }
 .history-row__date {
-  font-size: 13px; color: var(--text-muted); font-weight: 500; white-space: nowrap;
-  background: none; border: none; padding: 0; text-align: left; cursor: pointer;
+  font-size: 0.875rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;
+  background: none; border: none; padding: 12px 0; text-align: left; cursor: pointer;
   text-decoration: underline dotted; text-underline-offset: 3px;
 }
 .history-row__date:hover { color: var(--primary); }
+/* Same slot, but not editable — no dotted underline, no pointer. */
+.history-row__when {
+  font-size: 0.875rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;
+}
 .history-row__dist { display: flex; flex-wrap: wrap; gap: 6px; }
 .dist-chip {
   display: inline-flex;
@@ -861,24 +849,29 @@ html, body {
   background: var(--primary-light);
   border-radius: var(--r-pill);
   padding: 2px 7px;
-  font-size: 11px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--primary-dark);
 }
-.dist-chip .chip-label { font-size: 10px; font-weight: 400; color: var(--text-muted); margin-left: 1px; }
-.history-row__total { font-size: 20px; font-weight: 700; color: var(--text-primary); text-align: right; white-space: nowrap; }
-.history-row__total span { font-size: 11px; font-weight: 400; color: var(--text-muted); display: block; text-align: right; }
+.dist-chip .chip-label { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); margin-left: 1px; }
+.history-row__total { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); text-align: right; white-space: nowrap; }
+.history-row__total span { font-size: 0.8125rem; font-weight: 400; color: var(--text-muted); display: block; text-align: right; }
 .history-row__del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: 1.125rem;
   line-height: 1;
   cursor: pointer;
-  padding: 6px 4px;
+  padding: 0;
 }
 .history-row__del:hover { color: var(--error); }
-.empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 12px 0; }
+.empty { color: var(--text-muted); font-size: 0.9375rem; text-align: center; padding: 12px 0; }
 
 /* ── Training plans (Pläne) ─────────────────────────────── */
 .step-dot--compact .step-dot__label { display: none; }
@@ -915,7 +908,7 @@ html, body {
 
 .plan-pane__head { display: flex; gap: 16px; align-items: flex-start; }
 .plan-mins {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 700;
   color: var(--primary-dark);
   line-height: 1;
@@ -924,24 +917,24 @@ html, body {
 }
 .plan-mins span {
   display: block;
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   color: var(--text-muted);
   margin-top: 3px;
 }
-.plan-pane__title { font-size: 22px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
-.plan-pane__desc { font-size: 17px; color: var(--text-muted); line-height: 1.5; }
+.plan-pane__title { font-size: 1.375rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.plan-pane__desc { font-size: 1.0625rem; color: var(--text-muted); line-height: 1.5; }
 
 .plan-fields { display: flex; flex-direction: column; gap: 16px; }
 .plan-field { display: flex; flex-direction: column; gap: 7px; }
-.plan-field__label { font-size: 15px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
+.plan-field__label { font-size: 0.9375rem; font-weight: 600; color: var(--text-muted); letter-spacing: 0.02em; }
 .plan-field__row { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.plan-field__suffix { font-size: 15px; color: var(--text-muted); }
+.plan-field__suffix { font-size: 0.9375rem; color: var(--text-muted); }
 .plan-input {
   height: var(--input-height);
   padding: 0 14px;
-  font-size: 19px;
+  font-size: 1.1875rem;
   color: var(--text-primary);
   background: var(--card);
   border: 1.5px solid var(--divider);
@@ -960,15 +953,15 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   border: 1.5px solid var(--divider);
   background: var(--card);
   color: var(--text-muted);
-  font-size: 21px;
+  font-size: 1.3125rem;
   font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 .plan-dot[data-selected="1"] { background: var(--primary); border-color: var(--primary-dark); color: #fff; }
-.plan-gap { font-size: 15px; font-weight: 600; color: var(--text-muted); text-align: center; }
+.plan-gap { font-size: 0.9375rem; font-weight: 600; color: var(--text-muted); text-align: center; }
 
-.plan-scale-hint { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.plan-scale-hint { display: flex; justify-content: space-between; font-size: 0.8125rem; color: var(--text-muted); margin-top: 4px; }
 
 /* history: one card per run, fields wrapping naturally (text fields take the
    full row width) — a table's columns forced horizontal scrolling once a
@@ -991,11 +984,11 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
 .plan-history-card__date {
   background: none;
   border: none;
-  padding: 0;
+  padding: 10px 0;
   cursor: pointer;
   color: var(--text-muted);
   font-weight: 500;
-  font-size: 14px;
+  font-size: 0.9375rem;
   text-decoration: underline dotted;
   text-underline-offset: 3px;
 }
@@ -1008,13 +1001,13 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
 .plan-history-card__field { display: flex; flex-direction: column; gap: 3px; min-width: 52px; }
 .plan-history-card__field--wide { flex-basis: 100%; }
 .plan-history-card__label {
-  font-size: 10px;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.plan-history-card__value { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.plan-history-card__value { font-size: 0.9375rem; font-weight: 600; color: var(--text-primary); }
 .plan-history-card__field--wide .plan-history-card__value { font-weight: 400; }
 
 /* ── Bottom tab bar ─────────────────────────────────────── */
@@ -1037,7 +1030,7 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   border: none;
   border-bottom: 3px solid transparent;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
   padding: 0;
@@ -1080,7 +1073,7 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   background: var(--divider);
   margin: 4px auto 12px;
 }
-.sheet__title { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
+.sheet__title { font-size: 1.125rem; font-weight: 700; color: var(--text-primary); margin-bottom: 14px; }
 .sheet__body { display: flex; flex-direction: column; }
 
 /* sheet list rows (settings / pickers) */
@@ -1092,7 +1085,7 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   padding: 10px 4px;
   border-bottom: 1px solid var(--divider);
   cursor: pointer;
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--text-primary);
 }
 .sheet-row__label { flex: 1; }
@@ -1102,19 +1095,24 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   border-radius: var(--r-pill);
   background: var(--primary-light);
   color: var(--primary-dark);
-  font-size: 12px;
+  font-size: 0.8125rem;
   font-weight: 600;
   text-align: center;
 }
-.sheet-row__check { color: var(--primary); font-size: 16px; font-weight: 700; }
+.sheet-row__check { color: var(--primary); font-size: 1rem; font-weight: 700; }
 .sheet-row__del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-min);
+  height: var(--tap-min);
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 1.125rem;
   line-height: 1;
   cursor: pointer;
-  padding: 6px 8px;
+  padding: 0;
 }
 .sheet-row__del:hover { color: var(--error); }
 .sheet-add {
@@ -1128,13 +1126,13 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   border: 1.5px dashed var(--divider);
   border-radius: var(--r-md);
   color: var(--primary-dark);
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
 }
 .sheet-section-title {
   margin: 20px 0 6px;
-  font-size: 12px;
+  font-size: 0.8125rem;
   font-weight: 700;
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -1167,10 +1165,10 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   width: 100%;
 }
 .login-logo { width: 64px; height: 64px; }
-.login-title { margin: 4px 0 0; font-size: 28px; font-weight: 700; color: var(--text-primary); }
-.login-sub { margin: 0 0 20px; font-size: 15px; color: var(--text-muted); }
+.login-title { margin: 4px 0 0; font-size: 1.75rem; font-weight: 700; color: var(--text-primary); }
+.login-sub { margin: 0 0 20px; font-size: 0.9375rem; color: var(--text-muted); }
 .login-btn { width: 100%; }
-.login-error { margin-top: 12px; color: var(--error); font-size: 14px; }
+.login-error { margin-top: 12px; color: var(--error); font-size: 0.9375rem; }
 
 #app[hidden] { display: none; }
 #view-login[hidden] { display: none; }
@@ -1202,14 +1200,14 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
 .intro-logo { width: 56px; height: 56px; }
 .intro-title {
   margin: 4px 0 2px;
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 .intro-lead {
   margin: 0 0 20px;
-  font-size: 14px;
+  font-size: 0.9375rem;
   color: var(--text-muted);
 }
 .intro-rows {
@@ -1244,12 +1242,12 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   gap: 2px;
 }
 .intro-row__text strong {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
 }
 .intro-row__desc {
-  font-size: 13px;
+  font-size: 0.875rem;
   line-height: 1.35;
   color: var(--text-muted);
 }
@@ -1283,12 +1281,12 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   gap: 3px;
 }
 .intro-feature__text strong {
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--primary-dark);
 }
 .intro-feature__desc {
-  font-size: 13px;
+  font-size: 0.875rem;
   line-height: 1.4;
   color: var(--text-primary);
 }
@@ -1327,8 +1325,8 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
   margin-bottom: 4px;
   animation: plan-done-pop 0.4s cubic-bezier(.34,1.56,.64,1) both;
 }
-.plan-done__title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
-.plan-done__lead { font-size: 16px; color: var(--text-muted); max-width: 20rem; margin-bottom: 10px; }
+.plan-done__title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); }
+.plan-done__lead { font-size: 1rem; color: var(--text-muted); max-width: 20rem; margin-bottom: 10px; }
 @keyframes plan-done-pop {
   0% { transform: scale(0.4); opacity: 0; }
   60% { transform: scale(1.08); opacity: 1; }

@@ -57,53 +57,14 @@
         </button>
       </div>
 
-      <div class="step-indicator" role="list" aria-label="Ablauf">
-        <div class="step-dot" data-step="1" role="listitem"><span class="step-dot__num">1</span><span class="step-dot__label">Spielen</span></div>
-        <div class="step-dot" data-step="2" role="listitem"><span class="step-dot__num">2</span><span class="step-dot__label">Foto</span></div>
-        <div class="step-dot" data-step="3" role="listitem"><span class="step-dot__num">3</span><span class="step-dot__label">Zählen</span></div>
+      <div class="record-body record-body--count">
+        <div id="putten-grid" class="counter-grid"></div>
+        <div id="putten-progress" class="progress-row"></div>
       </div>
 
-      <div class="record-body record-body--steps">
-        <!-- Step ① Spielen -->
-        <div id="putten-step-play" class="step-pane">
-          <div class="step-center">
-            <div class="step-icon" aria-hidden="true">⛳️</div>
-            <h2 class="step-headline">Bälle spielen</h2>
-            <p id="putten-play-text" class="step-lead"></p>
-          </div>
-          <button id="putten-play-next" class="btn-primary">Weiter</button>
-        </div>
-
-        <!-- Step ② Green-Foto -->
-        <div id="putten-step-photo" class="step-pane" hidden>
-          <div class="step-photo-body">
-            <div id="putten-photo-intro" class="step-center">
-              <div class="step-icon" aria-hidden="true">📷</div>
-              <h2 class="step-headline">Green-Foto</h2>
-              <p class="step-lead">Foto vom Grün – der Putter zeigt die Linie.</p>
-              <button id="putten-photo" class="photo-btn" type="button">📷 Foto aufnehmen</button>
-            </div>
-            <div id="putten-photo-result" class="step-photo-result" hidden></div>
-          </div>
-          <div class="step-nav">
-            <button id="putten-photo-back" class="link-secondary">← Zurück</button>
-            <button id="putten-photo-skip" class="link-secondary">Überspringen</button>
-            <button id="putten-photo-next" class="btn-primary">Weiter</button>
-          </div>
-          <input id="putten-photo-input" type="file" accept="image/*" capture="environment" hidden />
-        </div>
-
-        <!-- Step ③ Zählen -->
-        <div id="putten-step-count" class="step-pane" hidden>
-          <div id="putten-grid" class="counter-grid"></div>
-          <div id="putten-progress" class="progress-row"></div>
-          <div class="step-nav">
-            <button id="putten-count-back" class="link-secondary">← Zurück</button>
-            <button id="putten-save" class="btn-primary">Speichern</button>
-          </div>
-        </div>
+      <div class="footer-bar">
+        <button id="putten-save" class="btn-primary">Speichern</button>
       </div>
-
     </section>
 
     <!-- ═════ View: Range Aufnahme ═════ -->
@@ -272,7 +233,7 @@
       <path d="M7.6 4.1l10.2 2.94a.7.7 0 0 1 .02 1.34L7.6 11.6V4.1Z" fill="#2e7d32"/>
     </svg>
     <h1 id="intro-title" class="intro-title">So trainierst du</h1>
-    <p class="intro-lead">Zwei Trainingsarten, ein cleverer Foto-Trick.</p>
+    <p class="intro-lead">Drei Wege, dein Training festzuhalten.</p>
 
     <ul class="intro-rows">
       <li class="intro-row">
@@ -293,17 +254,16 @@
           <span class="intro-row__desc">Schlag für Schlag Weite und Richtung erfassen.</span>
         </span>
       </li>
+      <li class="intro-row">
+        <span class="intro-row__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </span>
+        <span class="intro-row__text">
+          <strong>Pläne</strong>
+          <span class="intro-row__desc">Fertige Trainingseinheiten für Kurzspiel und Range, Block für Block.</span>
+        </span>
+      </li>
     </ul>
-
-    <div class="intro-feature">
-      <span class="intro-feature__icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg>
-      </span>
-      <div class="intro-feature__text">
-        <strong>Green-Foto</strong>
-        <span class="intro-feature__desc">Erst alle Bälle aufs Loch spielen, dann ein Foto vom Grün – der Putter zeigt die Linie. Die App liest aus der Streuung deine Tendenz: zu lang, zu kurz, links oder rechts.</span>
-      </div>
-    </div>
 
     <button id="intro-done" class="btn-primary intro-btn" type="button">Los geht's</button>
   </div>

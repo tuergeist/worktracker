@@ -38,6 +38,51 @@ export function closeSheet() {
   }
 }
 
+// Short status message above the tab bar. The app has no other channel for
+// "saved" / "save failed" — without it a failed request (bad reception on the
+// range is the normal case) looks exactly like nothing happening.
+let toastTimer = null;
+
+export function toast(message, type = "info") {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.className = "toast";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.toggle("toast--error", type === "error");
+  el.hidden = false;
+  // Force a reflow so the transition runs when re-showing an already-open toast.
+  void el.offsetWidth;
+  el.classList.add("toast--open");
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.remove("toast--open");
+    setTimeout(() => { el.hidden = true; }, 200);
+  }, type === "error" ? 5000 : 2500);
+}
+
+// Wrapper for anything that writes to the backend: reports failure to the user
+// instead of letting the rejected promise vanish into the console.
+export async function withSaveFeedback(fn, { ok, fail = "Speichern fehlgeschlagen. Nochmal versuchen." } = {}) {
+  try {
+    const result = await fn();
+    if (ok) toast(ok);
+    return { ok: true, result };
+  } catch (e) {
+    // A 401 already re-shows the login screen; a toast on top would confuse.
+    if (String(e && e.message) === "unauthorized") return { ok: false };
+    haptic("warning");
+    toast(fail, "error");
+    return { ok: false };
+  }
+}
+
 const HAPTICS = {
   light:   10,
   medium:  20,

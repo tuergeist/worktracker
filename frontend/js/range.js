@@ -2,16 +2,23 @@
 
 import { api, store, escapeHtml, onUserChange } from "./store.js";
 import { lineChart } from "./chart.js";
-import { haptic } from "./ui.js";
+import { haptic, withSaveFeedback } from "./ui.js";
 
-// Typical amateur carry centres (metres) keyed by club abbreviation.
+// Starting guesses only — used until the club has enough of its own shots.
+// Calibrated for a mid-handicap club golfer, not a long hitter: the previous
+// table (Driver 200 m carry, 7i 130) put a typical 45-year-old permanently in
+// the bottom bucket.
 const CLUB_CENTERS = {
-  Dr: 200, "3W": 180, "5W": 165,
-  "2i": 185, "3i": 175, "4i": 165, "5i": 150, "6i": 140,
-  "7i": 130, "8i": 120, "9i": 110,
-  PW: 95, GW: 80, SW: 65, LW: 50,
+  Dr: 185, "3W": 165, "5W": 155,
+  "2i": 170, "3i": 160, "4i": 150, "5i": 140, "6i": 130,
+  "7i": 120, "8i": 110, "9i": 100,
+  PW: 88, GW: 78, SW: 65, LW: 50,
 };
 const FALLBACK_CENTER = 120;
+
+// Shots needed before the club's own average replaces the table guess. Three is
+// enough to be closer than a generic number without chasing a single outlier.
+const CENTER_FROM_HISTORY_MIN = 3;
 
 const DIRECTIONS = [
   { key: "links", label: "← Links", drift: -1 },
@@ -27,6 +34,7 @@ const local = {
   buckets: [],          // [{label, mid}]
   bucketIdx: null,      // selected bucket index
   override: null,       // exact carry override in metres
+  statsClubId: null,    // which club local.stats belongs to (it arrives async)
   pickedTags: new Set(),
   direction: "gerade",
 };
@@ -36,23 +44,41 @@ function round5(n) {
   return Math.round(n / 5) * 5;
 }
 
+// Where to centre the distance buckets, and how confident we are about it.
+//   "history" — the club's own average carry
+//   "table"   — the guess above, for a club we know but have no shots for
+//   "unknown" — a self-added club (hybrid, 52°) we have nothing on at all
 function centerFor(club) {
-  return CLUB_CENTERS[club.abbr] ?? FALLBACK_CENTER;
+  const s = local.stats;
+  const fromHistory = s && s.shots >= CENTER_FROM_HISTORY_MIN && s.avg_carry != null
+    && local.statsClubId === club.id;
+  if (fromHistory) return { center: round5(s.avg_carry), source: "history" };
+  const table = CLUB_CENTERS[club.abbr];
+  if (table != null) return { center: table, source: "table" };
+  return { center: FALLBACK_CENTER, source: "unknown" };
 }
 
-// Build 5 buckets of 30 m width centred on the club's typical carry centre.
+// Bucket width follows how well we know the club. 30 m everywhere was the old
+// behaviour and useless for gapping — "155–185 m" spans three clubs. Once the
+// centre comes from the player's own shots, 10 m steps are the point of the
+// exercise; without history the net has to stay wide enough to catch the ball.
+const WIDTH_BY_SOURCE = { history: 10, table: 20, unknown: 30 };
+
+// Five buckets: three explicit ones of `w` around the centre, plus an
+// open-ended bucket at each end.
 function buildBuckets(club) {
-  const c = centerFor(club);
-  const e1 = round5(c - 45);
-  const e2 = round5(c - 15);
-  const e3 = round5(c + 15);
-  const e4 = round5(c + 45);
+  const { center: c, source } = centerFor(club);
+  const w = WIDTH_BY_SOURCE[source];
+  const lo = round5(c - w * 1.5);
+  const loMid = round5(c - w / 2);
+  const hiMid = round5(c + w / 2);
+  const hi = round5(c + w * 1.5);
   return [
-    { label: `< ${e1}`, mid: round5(c - 60) },
-    { label: `${e1} – ${e2}`, mid: round5(c - 30) },
-    { label: `${e2} – ${e3}`, mid: round5(c) },
-    { label: `${e3} – ${e4}`, mid: round5(c + 30) },
-    { label: `> ${e4}`, mid: round5(c + 60) },
+    { label: `< ${lo}`, mid: round5(c - w * 2) },
+    { label: `${lo} – ${loMid}`, mid: round5(c - w) },
+    { label: `${loMid} – ${hiMid}`, mid: round5(c) },
+    { label: `${hiMid} – ${hi}`, mid: round5(c + w) },
+    { label: `> ${hi}`, mid: round5(c + w * 2) },
   ];
 }
 
@@ -157,7 +183,7 @@ function toggleSlider() {
   if (!open) return;
 
   const slider = document.getElementById("range-slider");
-  const center = local.club ? centerFor(local.club) : FALLBACK_CENTER;
+  const center = local.club ? centerFor(local.club).center : FALLBACK_CENTER;
   slider.min = clamp(round5(center - 90), 30, 350);
   slider.max = clamp(round5(center + 90), 60, 400);
   slider.value = currentCarry() ?? center;
@@ -263,38 +289,62 @@ async function saveShot() {
   if (carry == null) return;
 
   const dir = DIRECTIONS.find((d) => d.key === local.direction) || DIRECTIONS[1];
-  await api.send("/api/shots", "POST", {
-    club_id: local.club.id,
-    carry_m: carry,
-    drift_m: dir.drift,
-    tags: [...local.pickedTags],
-    note: null,
-  });
+  const { ok } = await withSaveFeedback(
+    () => api.send("/api/shots", "POST", {
+      club_id: local.club.id,
+      carry_m: carry,
+      drift_m: dir.drift,
+      tags: [...local.pickedTags],
+      note: null,
+    }),
+    { ok: `${local.club.abbr} · ${carry} m gespeichert` },
+  );
+  if (!ok) return; // keep the entered shot so the user can retry
 
   haptic("success");
   resetShot();
   loadStats();
 }
 
+async function deleteShot(id) {
+  if (!confirm("Diesen Schlag löschen?")) return;
+  const { ok } = await withSaveFeedback(
+    () => api.send(`/api/shots/${id}`, "DELETE"),
+    { ok: "Schlag gelöscht", fail: "Löschen fehlgeschlagen." },
+  );
+  if (ok) renderRangeStats();
+}
+
 // ----------------------------------------------------------- stats
 async function loadStats() {
   if (!local.club) return;
-  const stats = await api.get(`/api/clubs/${local.club.id}/stats`);
+  const clubId = local.club.id;
+  const stats = await api.get(`/api/clubs/${clubId}/stats`);
+  if (local.club?.id !== clubId) return; // user switched clubs mid-request
   local.stats = stats;
+  local.statsClubId = clubId;
   renderSummary();
+  // The buckets are centred on this club's average, so they can only be built
+  // once the stats land. Rebuilding under an existing selection would silently
+  // change what that selection means, so leave an in-progress entry alone.
+  if (local.bucketIdx == null && local.override == null) renderBuckets();
 }
 
-// Inline summary on the record view for the selected club.
+// Inline summary on the record view. Also says where the distance buckets come
+// from — the ranges look wrong until you know they are still generic guesses.
 function renderSummary() {
   const el = document.getElementById("range-summary");
   const s = local.stats;
+  el.hidden = false;
   if (!s || s.shots === 0) {
-    el.textContent = "";
-    el.hidden = true;
+    el.textContent = "Noch keine Schläge · Bereiche sind Richtwerte";
     return;
   }
-  el.hidden = false;
-  el.textContent = `${s.shots} Schläge · Ø ${s.avg_carry} m`;
+  if (s.shots < CENTER_FROM_HISTORY_MIN) {
+    el.textContent = `${s.shots} Schläge · Ø ${s.avg_carry} m · Bereiche sind Richtwerte`;
+    return;
+  }
+  el.textContent = `${s.shots} Schläge · Ø ${s.avg_carry} m · Bereiche aus deinen Schlägen`;
 }
 
 function statCard(num, label, highlight) {
@@ -341,13 +391,20 @@ function renderStats() {
     const tags = shot.tags && shot.tags.length
       ? " · " + shot.tags.map(escapeHtml).join(", ")
       : "";
+    // Plain text, not .history-row__date — that class is styled as a tappable
+    // date editor (dotted underline), which range rows do not offer.
     return `<div class="history-row">
-      <div class="history-row__date">${when}</div>
+      <div class="history-row__when">${when}</div>
       <div class="history-row__dist">${driftLabel(shot.drift_m)}${tags}</div>
       <div class="history-row__total">${shot.carry_m} <span>m</span></div>
+      <button class="history-row__del" data-del="${shot.id}" aria-label="Schlag löschen">✕</button>
     </div>`;
   }).join("");
   hist.innerHTML = `<div class="history-card">${rows}</div>`;
+
+  hist.querySelectorAll("[data-del]").forEach((btn) => {
+    btn.onclick = () => deleteShot(parseInt(btn.dataset.del, 10));
+  });
 }
 
 // Re-fetch stats for the selected club, then render the stats view.

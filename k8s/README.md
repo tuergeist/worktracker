@@ -3,7 +3,7 @@
 Manifests for the Golf Training app + a Postgres database.
 
 ## Files
-- `secret.example.yaml` — DB credentials + optional `ANTHROPIC_API_KEY` (copy to `secret.yaml`)
+- `secret.example.yaml` — DB credentials + Google OAuth + session secret (copy to `secret.yaml`)
 - `postgres.yaml` — Postgres `StatefulSet` + headless `Service` + 5Gi volume
 - `deployment.yaml` — app `Deployment` (2 replicas, image from GHCR)
 - `service.yaml` — app `ClusterIP` Service (port 80 → 8000)

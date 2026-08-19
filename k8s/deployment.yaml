@@ -62,13 +62,6 @@ spec:
             # fastapi-users derives the OAuth callback per request; with
             # --proxy-headers behind a TLS ingress it becomes
             # https://scratchlab.app/api/auth/google/callback (allow that in Google).
-            # Optional: only needed for the green-photo analysis endpoint.
-            - name: ANTHROPIC_API_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: worktracker-secrets
-                  key: ANTHROPIC_API_KEY
-                  optional: true
           readinessProbe:
             httpGet:
               path: /api/users

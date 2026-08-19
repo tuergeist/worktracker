@@ -11,8 +11,6 @@ COPY backend ./backend
 COPY frontend ./frontend
 COPY alembic.ini ./alembic.ini
 COPY migrations ./migrations
-# Putt-analyzer module (single file; reused by the /api/analyze-putt endpoint)
-COPY tools/putt-analyzer/putt_analyze.py ./tools/putt-analyzer/putt_analyze.py
 
 # DATABASE_URL is provided at runtime (compose / k8s), e.g.
 #   postgresql://worktracker:worktracker@db:5432/worktracker

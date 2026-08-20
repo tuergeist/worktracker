@@ -2,10 +2,12 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
-# Install deps first for layer caching. requirements.txt is a full pin
-# generated from requirements.in — see the header there for how to refresh.
+# Install deps first for layer caching. requirements.txt is a hashed, fully
+# pinned lock generated from requirements.in — see the header there.
+# --require-hashes makes pip refuse anything whose artifact does not match, so
+# it also fails loudly if the lock was regenerated without --generate-hashes.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # App code + DB migrations
 COPY backend ./backend

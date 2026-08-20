@@ -13,7 +13,41 @@ env:
   IMAGE_NAME: ${{ github.repository }}   # ghcr.io/<owner>/<repo>, lowercase
 
 jobs:
+  # requirements.txt is generated from requirements.in, and nothing stops the
+  # two from drifting: editing the .in without regenerating leaves the image
+  # installing the old lock, silently. Recompiling here and diffing catches it.
+  # uv keeps the pins already in the output file, so this does not turn into a
+  # red build every time some upstream publishes a release.
+  lock-check:
+    name: Lock matches requirements.in
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Recompile the lock and compare
+        run: |
+          set -euo pipefail
+          py=$(sed -n 's/^FROM python:\([0-9.]*\)-slim.*/\1/p' Dockerfile)
+          if [ -z "$py" ]; then
+            echo "::error::Could not read the Python version from the Dockerfile"
+            exit 1
+          fi
+          echo "Resolving for Python $py (from the Dockerfile's base image)"
+          cp requirements.txt /tmp/requirements.expected
+          uv pip compile requirements.in --python-version "$py" --quiet \
+            --universal --generate-hashes -o requirements.txt
+          if ! diff -u /tmp/requirements.expected requirements.txt; then
+            echo "::error::requirements.txt is out of date. Run the command in the header of requirements.in and commit the result."
+            exit 1
+          fi
+          echo "Lock is current."
+
   build:
+    needs: lock-check
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -1,7 +1,9 @@
 # Direct dependencies. Floors track the major line the code is written against;
 # the exact set that gets installed lives in the generated requirements.txt.
 #
-# Regenerate after editing:
+# Regenerate after editing — CI recompiles and diffs, so a stale lock fails the
+# build instead of shipping quietly. CI takes the Python version from the
+# Dockerfile's base image, so keep the two in step:
 #   uv pip compile requirements.in --python-version 3.14 --universal \
 #     --generate-hashes -o requirements.txt
 #

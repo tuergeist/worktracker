@@ -1,8 +1,9 @@
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
-# Install deps first for layer caching
+# Install deps first for layer caching. requirements.txt is a full pin
+# generated from requirements.in — see the header there for how to refresh.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

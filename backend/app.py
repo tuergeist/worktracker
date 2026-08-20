@@ -40,9 +40,9 @@ DEV_LOGIN = os.environ.get("DEV_LOGIN", "").lower() in ("1", "true", "yes")
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 
-# CPython only learned .webmanifest in 3.13; the image runs 3.11, where
-# StaticFiles would fall back to application/octet-stream and browsers
-# reject the manifest. Registering it here is version-independent.
+# CPython only learned .webmanifest in 3.13. The image is on 3.14 and knows it,
+# but StaticFiles also consults the system mime.types, which varies per base
+# image — so pin it here rather than depend on either.
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 

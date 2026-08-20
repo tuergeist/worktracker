@@ -7,6 +7,7 @@ authenticated user. Serves the JSON API under /api and the static frontend at /.
 Run with:  uvicorn backend.app:app --reload
 """
 import json
+import mimetypes
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -38,6 +39,11 @@ from .users import SESSION_SECRET, get_jwt_strategy
 DEV_LOGIN = os.environ.get("DEV_LOGIN", "").lower() in ("1", "true", "yes")
 
 FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+
+# CPython only learned .webmanifest in 3.13; the image runs 3.11, where
+# StaticFiles would fall back to application/octet-stream and browsers
+# reject the manifest. Registering it here is version-independent.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 @asynccontextmanager
@@ -536,7 +542,7 @@ async def _revalidate_static(request, call_next):
     resp = await call_next(request)
     if not request.url.path.startswith("/api"):
         ct = resp.headers.get("content-type", "")
-        if any(t in ct for t in ("text/html", "javascript", "text/css")):
+        if any(t in ct for t in ("text/html", "javascript", "text/css", "manifest+json")):
             resp.headers["Cache-Control"] = "no-cache"
     return resp
 

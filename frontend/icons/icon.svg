@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="scratchlab">
+  <!-- Full-bleed brand background: works unchanged as a maskable icon (Android
+       crops to its own shape) and as the opaque iOS home-screen icon. -->
+  <rect width="512" height="512" fill="#2e7d32"/>
+  <!-- The app's flag mark, scaled to ~55% of the canvas so it stays inside the
+       maskable safe zone (central 80%) and iOS's corner rounding. Paths are the
+       ones from index.html's inline logo, recoloured for the green ground. -->
+  <g transform="translate(86.3 75) scale(14.6)">
+    <path d="M6 2.75a1.05 1.05 0 0 1 1.05 1.05V21a1.05 1.05 0 0 1-2.1 0V3.8A1.05 1.05 0 0 1 6 2.75Z" fill="#ffffff"/>
+    <path d="M7.6 4.1l10.2 2.94a.7.7 0 0 1 .02 1.34L7.6 11.6V4.1Z" fill="#a5d6a7"/>
+  </g>
+</svg>

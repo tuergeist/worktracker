@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, escapeHtml, onUserChange } from "./store.js";
-import { haptic, toast, withSaveFeedback } from "./ui.js";
+import { haptic, toast, withSaveFeedback, submitOnce } from "./ui.js";
 import { lineChart } from "./chart.js";
 
 // Plan content lives here, not in the backend — the API stores each run's
@@ -516,9 +516,12 @@ async function saveRun() {
     toast("Trag mindestens einen Wert ein, bevor du speicherst.", "error");
     return;
   }
-  const { ok } = await withSaveFeedback(
-    () => api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } }),
-  );
+  // Guarded: the same run must not be posted twice because the first tap took
+  // a moment. A repeat tap while the request is open is dropped, not queued.
+  const { ok } = await submitOnce($("plans-nav-next"), "Speichert …", () =>
+    withSaveFeedback(
+      () => api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } }),
+    ));
   if (!ok) return; // draft stays intact so the user can retry
 
   haptic("success");

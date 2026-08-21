@@ -67,6 +67,33 @@ export function toast(message, type = "info") {
   }, type === "error" ? 5000 : 2500);
 }
 
+// Double-tap guard for a submit button. A save over a weak connection takes
+// long enough that people tap again, and the button stayed live throughout —
+// two taps posted the same plan run twice. While one submit is in flight the
+// button is disabled and relabelled (so the wait has a visible reason) and any
+// further call is dropped rather than queued.
+const inFlight = new WeakSet();
+
+export async function submitOnce(btn, busyLabel, fn) {
+  if (!btn) return fn();
+  if (inFlight.has(btn)) return { ok: false, busy: true };
+  inFlight.add(btn);
+
+  const label = btn.textContent;
+  const wasDisabled = btn.disabled;
+  btn.disabled = true;
+  if (busyLabel) btn.textContent = busyLabel;
+  try {
+    return await fn();
+  } finally {
+    inFlight.delete(btn);
+    // Restore rather than enable: the caller decides what the button should say
+    // and whether it applies at all once the view has moved on.
+    btn.disabled = wasDisabled;
+    if (busyLabel) btn.textContent = label;
+  }
+}
+
 // Wrapper for anything that writes to the backend: reports failure to the user
 // instead of letting the rejected promise vanish into the console.
 export async function withSaveFeedback(fn, { ok, fail = "Speichern fehlgeschlagen. Nochmal versuchen." } = {}) {

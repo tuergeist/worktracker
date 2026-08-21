@@ -2,7 +2,7 @@
 
 import { api, store, escapeHtml, onUserChange } from "./store.js";
 import { lineChart } from "./chart.js";
-import { haptic, withSaveFeedback } from "./ui.js";
+import { haptic, withSaveFeedback, submitOnce } from "./ui.js";
 
 // Starting guesses only — used until the club has enough of its own shots.
 // Calibrated for a mid-handicap club golfer, not a long hitter: the previous
@@ -289,16 +289,17 @@ async function saveShot() {
   if (carry == null) return;
 
   const dir = DIRECTIONS.find((d) => d.key === local.direction) || DIRECTIONS[1];
-  const { ok } = await withSaveFeedback(
-    () => api.send("/api/shots", "POST", {
-      club_id: local.club.id,
-      carry_m: carry,
-      drift_m: dir.drift,
-      tags: [...local.pickedTags],
-      note: null,
-    }),
-    { ok: `${local.club.abbr} · ${carry} m gespeichert` },
-  );
+  const { ok } = await submitOnce(document.getElementById("range-save"), "Speichert …", () =>
+    withSaveFeedback(
+      () => api.send("/api/shots", "POST", {
+        club_id: local.club.id,
+        carry_m: carry,
+        drift_m: dir.drift,
+        tags: [...local.pickedTags],
+        note: null,
+      }),
+      { ok: `${local.club.abbr} · ${carry} m gespeichert` },
+    ));
   if (!ok) return; // keep the entered shot so the user can retry
 
   haptic("success");

@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, store, onUserChange, escapeHtml } from "./store.js";
-import { openSheet, closeSheet, haptic, withSaveFeedback } from "./ui.js";
+import { openSheet, closeSheet, haptic, withSaveFeedback, submitOnce } from "./ui.js";
 import { lineChart } from "./chart.js";
 
 const BUCKETS = ["1", "2", "3", "4+"];
@@ -289,14 +289,15 @@ async function saveSession() {
     for (let i = 0; i < local.dist[b]; i++) results.push(v);
   });
 
-  const { ok } = await withSaveFeedback(
-    () => api.send("/api/sessions", "POST", {
-      exercise_id: local.selected.id,
-      results,
-      note: null,
-    }),
-    { ok: `Gespeichert · ${results.length} Bälle` },
-  );
+  const { ok } = await submitOnce($("putten-save"), "Speichert …", () =>
+    withSaveFeedback(
+      () => api.send("/api/sessions", "POST", {
+        exercise_id: local.selected.id,
+        results,
+        note: null,
+      }),
+      { ok: `Gespeichert · ${results.length} Bälle` },
+    ));
   if (!ok) return; // keep the entered counts so the user can retry
 
   haptic("success");

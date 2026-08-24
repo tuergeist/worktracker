@@ -95,6 +95,11 @@ class Club(Base):
     created_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
 
 
+# Client-supplied key that makes a create idempotent: a retry after a lost
+# response carries the same key and returns the original row instead of adding a
+# second one. Nullable — rows written before this existed, and any client that
+# does not send one, simply skip the check. Uniqueness is per user and only over
+# non-null values (see the migration's partial index).
 class Session(Base):
     __tablename__ = "sessions"
 
@@ -107,6 +112,7 @@ class Session(Base):
     )
     results_json: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
 
 
@@ -124,6 +130,7 @@ class Shot(Base):
     drift_m: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     tags_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]", server_default="[]")
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
 
 
@@ -143,6 +150,7 @@ class PlanRun(Base):
     plan_key: Mapped[str] = mapped_column(Text, nullable=False)  # "kurzspiel" | "range"
     data_json: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     played_at: Mapped[str] = mapped_column(Text, nullable=False, server_default=_TS_DEFAULT)
 
 

@@ -1,6 +1,6 @@
 "use strict";
 
-import { api, store, onUserChange, escapeHtml } from "./store.js";
+import { api, store, onUserChange, escapeHtml, newIdempotencyKey } from "./store.js";
 import { openSheet, closeSheet, haptic, withSaveFeedback, submitOnce } from "./ui.js";
 import { lineChart } from "./chart.js";
 
@@ -12,6 +12,7 @@ const local = {
   selected: null,
   dist: { "1": 0, "2": 0, "3": 0, "4+": 0 },
   lastBucket: null, // most recently incremented bucket (for --active)
+  idemKey: null,    // minted on the first save attempt, kept across retries
 };
 
 function $(id) { return document.getElementById(id); }
@@ -19,6 +20,7 @@ function $(id) { return document.getElementById(id); }
 function resetDist() {
   local.dist = { "1": 0, "2": 0, "3": 0, "4+": 0 };
   local.lastBucket = null;
+  local.idemKey = null; // a cleared grid is a different session
 }
 
 function assigned() {
@@ -289,18 +291,21 @@ async function saveSession() {
     for (let i = 0; i < local.dist[b]; i++) results.push(v);
   });
 
+  if (!local.idemKey) local.idemKey = newIdempotencyKey();
+  const key = local.idemKey;
   const { ok } = await submitOnce($("putten-save"), "Speichert …", () =>
     withSaveFeedback(
       () => api.send("/api/sessions", "POST", {
         exercise_id: local.selected.id,
         results,
         note: null,
-      }),
+      }, { idempotencyKey: key }),
       { ok: `Gespeichert · ${results.length} Bälle` },
     ));
-  if (!ok) return; // keep the entered counts so the user can retry
+  if (!ok) return; // counts and key stay so a retry reuses the key
 
   haptic("success");
+  local.idemKey = null;
   resetDist();
   renderGrid(); // ready for the next round
   loadStats();

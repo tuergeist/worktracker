@@ -10,11 +10,13 @@ import json
 import mimetypes
 import os
 from contextlib import asynccontextmanager
+from typing import Annotated
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import db
@@ -149,6 +151,48 @@ def _plan_run_dict(p: PlanRun) -> dict:
     }
 
 
+# ------------------------------------------------------------- idempotency
+# Debouncing the button stops a double tap, but not the case that actually
+# loses data on a range with one bar: the request arrives, the response does
+# not, and the user retries. The retry carries the same client-generated key,
+# so the create returns the row it made the first time instead of a second one.
+IdempotencyKey = Annotated[str | None, Header(alias="Idempotency-Key")]
+
+
+async def _existing_by_key(session: AsyncSession, model, user_id: int, key: str | None):
+    """The row this user already created under `key`, if any."""
+    if not key:
+        return None
+    return (
+        await session.scalars(
+            select(model).where(model.user_id == user_id, model.idempotency_key == key)
+        )
+    ).first()
+
+
+async def _create_idempotent(session: AsyncSession, response: Response, row, key: str | None):
+    """Insert `row`, or return what an earlier request with the same key wrote.
+
+    The pre-check handles the ordinary retry; the IntegrityError handles two
+    requests racing, where both pass the check before either commits. 200
+    instead of 201 on the replay says the caller is looking at an earlier
+    creation, not a fresh one.
+    """
+    row.idempotency_key = key
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        prior = await _existing_by_key(session, type(row), row.user_id, key)
+        if prior is None:
+            raise
+        response.status_code = 200
+        return prior
+    await session.refresh(row)
+    return row
+
+
 # --------------------------------------------------------------- exercises
 @app.get("/api/exercises")
 async def list_exercises(
@@ -230,22 +274,25 @@ async def delete_exercise(
 @app.post("/api/sessions", status_code=201)
 async def create_session(
     body: SessionCreate,
+    response: Response,
+    idempotency_key: IdempotencyKey = None,
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
+    prior = await _existing_by_key(session, Session, user.id, idempotency_key)
+    if prior is not None:
+        response.status_code = 200
+        return _session_dict(prior)
     if await session.get(Exercise, body.exercise_id) is None:
         raise HTTPException(404, "Exercise not found")
     if any(p < 1 for p in body.results):
         raise HTTPException(400, "Each ball needs at least 1 putt")
-    s = Session(
+    s = await _create_idempotent(session, response, Session(
         user_id=user.id,
         exercise_id=body.exercise_id,
         results_json=json.dumps(body.results),
         note=body.note,
-    )
-    session.add(s)
-    await session.commit()
-    await session.refresh(s)
+    ), idempotency_key)
     return _session_dict(s)
 
 
@@ -314,18 +361,21 @@ async def exercise_stats(
 @app.post("/api/plan-runs", status_code=201)
 async def create_plan_run(
     body: PlanRunCreate,
+    response: Response,
+    idempotency_key: IdempotencyKey = None,
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
-    p = PlanRun(
+    prior = await _existing_by_key(session, PlanRun, user.id, idempotency_key)
+    if prior is not None:
+        response.status_code = 200
+        return _plan_run_dict(prior)
+    p = await _create_idempotent(session, response, PlanRun(
         user_id=user.id,
         plan_key=body.plan_key,
         data_json=json.dumps(body.data),
         note=body.note,
-    )
-    session.add(p)
-    await session.commit()
-    await session.refresh(p)
+    ), idempotency_key)
     return _plan_run_dict(p)
 
 
@@ -444,22 +494,25 @@ async def delete_club(
 @app.post("/api/shots", status_code=201)
 async def create_shot(
     body: ShotCreate,
+    response: Response,
+    idempotency_key: IdempotencyKey = None,
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(current_active_user),
 ):
+    prior = await _existing_by_key(session, Shot, user.id, idempotency_key)
+    if prior is not None:
+        response.status_code = 200
+        return _shot_dict(prior)
     if await session.get(Club, body.club_id) is None:
         raise HTTPException(404, "Club not found")
-    s = Shot(
+    s = await _create_idempotent(session, response, Shot(
         user_id=user.id,
         club_id=body.club_id,
         carry_m=body.carry_m,
         drift_m=body.drift_m,
         tags_json=json.dumps(body.tags),
         note=body.note,
-    )
-    session.add(s)
-    await session.commit()
-    await session.refresh(s)
+    ), idempotency_key)
     return _shot_dict(s)
 
 

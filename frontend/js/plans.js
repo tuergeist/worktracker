@@ -1,6 +1,6 @@
 "use strict";
 
-import { api, escapeHtml, onUserChange } from "./store.js";
+import { api, escapeHtml, onUserChange, newIdempotencyKey } from "./store.js";
 import { haptic, toast, withSaveFeedback, submitOnce } from "./ui.js";
 import { lineChart } from "./chart.js";
 
@@ -112,6 +112,10 @@ const local = {
   plan: null,
   data: {},
   step: 1,
+  // Belongs to the run being filled in, not to one request: it is minted on the
+  // first save attempt and kept — through a failure, and through a reload, since
+  // it travels in the draft — until a save is confirmed.
+  idemKey: null,
   // The Statistik tab picks its plan independently of the one being recorded —
   // sharing the selection meant looking at Range history wiped a running
   // Kurzspiel draft.
@@ -126,7 +130,7 @@ function $(id) { return document.getElementById(id); }
 function saveDraft() {
   try {
     localStorage.setItem(LS_DRAFT, JSON.stringify({
-      planKey: local.planKey, step: local.step, data: local.data,
+      planKey: local.planKey, step: local.step, data: local.data, idemKey: local.idemKey,
     }));
   } catch (_) { /* private mode / quota — the run still works, just unsaved */ }
 }
@@ -480,6 +484,7 @@ function selectPlan(key, keep = null) {
   local.planKey = PLAN_DEFS[key] ? key : DEFAULT_PLAN_KEY;
   local.plan = PLAN_DEFS[local.planKey];
   local.data = keep ? { ...keep.data } : {};
+  local.idemKey = keep ? (keep.idemKey ?? null) : null;
   const total = local.plan.blocks.length;
   local.step = keep ? Math.min(Math.max(1, keep.step || 1), total) : 1;
   if (!keep) clearDraft();
@@ -518,13 +523,20 @@ async function saveRun() {
   }
   // Guarded: the same run must not be posted twice because the first tap took
   // a moment. A repeat tap while the request is open is dropped, not queued.
+  // Persist the key before the request goes out, not after: if the response is
+  // lost and the tab is reloaded, the retry has to send this same key, and only
+  // the draft survives that.
+  if (!local.idemKey) { local.idemKey = newIdempotencyKey(); saveDraft(); }
+  const key = local.idemKey;
   const { ok } = await submitOnce($("plans-nav-next"), "Speichert …", () =>
     withSaveFeedback(
-      () => api.send("/api/plan-runs", "POST", { plan_key: local.planKey, data: { ...local.data } }),
+      () => api.send("/api/plan-runs", "POST",
+        { plan_key: local.planKey, data: { ...local.data } }, { idempotencyKey: key }),
     ));
-  if (!ok) return; // draft stays intact so the user can retry
+  if (!ok) return; // draft and key stay intact so a retry reuses the key
 
   haptic("success");
+  local.idemKey = null;
   clearDraft();
   showDone(); // stay on a confirmation screen instead of dropping back to step 1
   loadPlansHistory();

@@ -1,6 +1,6 @@
 "use strict";
 
-import { api, store, escapeHtml, onUserChange } from "./store.js";
+import { api, store, escapeHtml, onUserChange, newIdempotencyKey } from "./store.js";
 import { lineChart } from "./chart.js";
 import { haptic, withSaveFeedback, submitOnce } from "./ui.js";
 
@@ -37,6 +37,7 @@ const local = {
   statsClubId: null,    // which club local.stats belongs to (it arrives async)
   pickedTags: new Set(),
   direction: "gerade",
+  idemKey: null,        // minted on the first save attempt, kept across retries
 };
 
 // ----------------------------------------------------------- helpers
@@ -271,6 +272,7 @@ function updateSaveState() {
 }
 
 function resetShot() {
+  local.idemKey = null; // a cleared form is a different shot
   local.bucketIdx = null;
   local.override = null;
   local.pickedTags.clear();
@@ -289,6 +291,8 @@ async function saveShot() {
   if (carry == null) return;
 
   const dir = DIRECTIONS.find((d) => d.key === local.direction) || DIRECTIONS[1];
+  if (!local.idemKey) local.idemKey = newIdempotencyKey();
+  const key = local.idemKey;
   const { ok } = await submitOnce(document.getElementById("range-save"), "Speichert …", () =>
     withSaveFeedback(
       () => api.send("/api/shots", "POST", {
@@ -297,10 +301,10 @@ async function saveShot() {
         drift_m: dir.drift,
         tags: [...local.pickedTags],
         note: null,
-      }),
+      }, { idempotencyKey: key }),
       { ok: `${local.club.abbr} · ${carry} m gespeichert` },
     ));
-  if (!ok) return; // keep the entered shot so the user can retry
+  if (!ok) return; // shot and key stay so a retry reuses the key
 
   haptic("success");
   resetShot();

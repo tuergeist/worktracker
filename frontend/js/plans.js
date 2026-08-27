@@ -15,12 +15,12 @@ const PLAN_DEFS = {
       {
         title: "Einfühlen", minutes: 5,
         desc: "Putts unterschiedlicher Länge ohne Ziel und ohne Zählen. Nur Tempo und Treffgefühl. Kalibriert dich auf die heutige Grüngeschwindigkeit.",
-        fields: [{ key: "green", short: "Grün", type: "greenScale" }],
+        fields: [{ key: "green", short: "Grün-Tempo", type: "greenScale" }],
       },
       {
         title: "Up & Down · 12 Bälle", minutes: 20,
         desc: "Bälle 10–15 m vom Loch entfernt weit verteilt im Vorgrün und Rough ablegen — jeden aus seiner eigenen Lage spielen, auch die schlechten. Chip auf die Fahne, dann einlochen. Zählt als Erfolg, wenn du mit maximal 2 Putts drin bist.",
-        fields: [{ key: "ud", short: "U&D", type: "count", max: 12, groupSize: 4, label: "Erfolge (max. 2 Putts)" }],
+        fields: [{ key: "ud", short: "Up & Down", type: "count", max: 12, groupSize: 4, label: "Erfolge (max. 2 Putts)" }],
       },
       {
         title: "Kurze Putts", minutes: 8,
@@ -29,19 +29,19 @@ const PLAN_DEFS = {
         // stand in der Historie "2/6" wie eine Trefferquote, und der Trend lag
         // neben Werten, bei denen mehr besser ist.
         fields: [
-          { key: "p1", short: "1 PL", type: "count", min: 1, max: 6, groupSize: 3, unit: "Anläufe", lowerIsBetter: true, label: "Anläufe, bis alle 6 aus 1 Putterlänge sitzen" },
-          { key: "p2", short: "2 PL", type: "count", min: 1, max: 6, groupSize: 3, unit: "Anläufe", lowerIsBetter: true, label: "Anläufe, bis alle 6 aus 2 Putterlängen sitzen" },
+          { key: "p1", short: "1 Putterlänge", type: "count", min: 1, max: 6, groupSize: 3, unit: "Anläufe", lowerIsBetter: true, label: "Anläufe, bis alle 6 aus 1 Putterlänge sitzen" },
+          { key: "p2", short: "2 Putterlängen", type: "count", min: 1, max: 6, groupSize: 3, unit: "Anläufe", lowerIsBetter: true, label: "Anläufe, bis alle 6 aus 2 Putterlängen sitzen" },
         ],
       },
       {
         title: "Mitteldistanz 3–5 m", minutes: 7,
         desc: "12 Bälle, jeder Putt von einer anderen Seite des Lochs. Vor jedem Putt lesen und einen Zwischenpunkt festlegen. Hier liegt das eigentliche Scoring.",
-        fields: [{ key: "mid", short: "Mitte", type: "count", max: 12, groupSize: 4, label: "Gelocht" }],
+        fields: [{ key: "mid", short: "Mitteldistanz", type: "count", max: 12, groupSize: 4, label: "Gelocht" }],
       },
       {
         title: "Lag-Putts 6–15 m", minutes: 8,
         desc: "12 Bälle. Ziel ist der 1-m-Kreis ums Loch, mit Tees markiert — nicht das Loch selbst. Distanzen mischen, nicht der Reihe nach abarbeiten. Richtwert: 8 von 12.",
-        fields: [{ key: "lag", short: "Lag", type: "count", max: 12, groupSize: 4, label: "Im Kreis" }],
+        fields: [{ key: "lag", short: "Lag-Putts", type: "count", max: 12, groupSize: 4, label: "Im Kreis" }],
       },
       {
         title: "Druckabschluss", minutes: 2,
@@ -61,15 +61,15 @@ const PLAN_DEFS = {
       {
         title: "Aufwärmen", minutes: 10,
         desc: "PW und SW, halbe Schwünge, kurze Ziele. Reihenfolge von unten nach oben — kalibriert Tempo und Treffmoment.",
-        fields: [{ key: "cond", short: "Wind/Platz", type: "text", label: "Wind / Platz heute", placeholder: "ruhig, Matten, …" }],
+        fields: [{ key: "cond", short: "Wind / Platz", type: "text", label: "Wind / Platz heute", placeholder: "ruhig, Matten, …" }],
       },
       {
         title: "Teildistanzen · 50 m", minutes: 15,
         desc: "Direkt nach dem Aufwärmen, solange die Konzentration da ist. 10 Bälle aufs 50-m-Ziel — wie viele landen im Fenster 45–55 m? Danach Uhrzeiten-System mit PW und SW üben: Rückschwung auf 8, 9, 10 Uhr, Tempo bleibt konstant. Nur der 9-Uhr-Wert wird eingetragen, 8 und 10 Uhr dienen als Kalibrierpunkte drumherum.",
         fields: [
           { key: "fifty", short: "50 m", type: "number", label: "Treffer im Fenster 45–55 m", min: 0, max: 10, suffix: "von 10" },
-          { key: "pw9", short: "PW9", type: "number", label: "PW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
-          { key: "sw9", short: "SW9", type: "number", label: "SW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
+          { key: "pw9", short: "PW 9 Uhr", type: "number", label: "PW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
+          { key: "sw9", short: "SW 9 Uhr", type: "number", label: "SW Rückschwung 9 Uhr = Weite", min: 0, max: 120, step: 5, suffix: "m" },
         ],
       },
       {
@@ -81,15 +81,15 @@ const PLAN_DEFS = {
         title: "Wechselblock · 7er / 5er", minutes: 15,
         desc: "Kein Block mit einem Schläger. Wechsel nach jedem Ball: 7er, 5er, Wedge, 7er. Vor jedem Ball neues Ziel. Trag die mittlere Carry ein, nicht die Bestweite — und den Abstand zwischen beiden.",
         fields: [
-          { key: "i7", short: "7er", type: "number", label: "7er Carry ø m", min: 0, max: 250, step: 5, suffix: "m" },
-          { key: "i5", short: "5er", type: "number", label: "5er Carry ø m", min: 0, max: 250, step: 5, suffix: "m" },
+          { key: "i7", short: "7er Carry", type: "number", label: "7er Carry ø m", min: 0, max: 250, step: 5, suffix: "m" },
+          { key: "i5", short: "5er Carry", type: "number", label: "5er Carry ø m", min: 0, max: 250, step: 5, suffix: "m" },
           { key: "gap", short: "Gap", type: "gap", from: ["i7", "i5"] },
         ],
       },
       {
         title: "Simulation", minutes: 5,
         desc: "Volle Pre-Shot-Routine vor jedem Ball, Ziel jedes Mal neu. Bewerte ehrlich: Hättest du diesen Schlag auf dem Platz akzeptiert?",
-        fields: [{ key: "sim", short: "Sim", type: "number", label: "Platztauglich", min: 0, max: 10, suffix: "von 10" }],
+        fields: [{ key: "sim", short: "Simulation", type: "number", label: "Platztauglich", min: 0, max: 10, suffix: "von 10" }],
       },
       {
         title: "Notiz", minutes: null,
@@ -98,6 +98,12 @@ const PLAN_DEFS = {
       },
     ],
   },
+};
+
+// The 1-5 green speed as words. As "3/5" it sat next to "7/12" in the history
+// and read like a hit rate rather than a pace.
+const GREEN_SPEED = {
+  1: "sehr langsam", 2: "langsam", 3: "mittel", 4: "schnell", 5: "sehr schnell",
 };
 
 const DEFAULT_PLAN_KEY = "kurzspiel";
@@ -189,7 +195,7 @@ function fieldHtml(f, idx) {
           <div class="direction-toggle" id="plan-field-${idx}-${f.key}-scale">
             ${[1, 2, 3, 4, 5].map((v) => `<button type="button" class="dir-btn" data-v="${v}">${v}</button>`).join("")}
           </div>
-          <div class="plan-scale-hint"><span>langsam</span><span>schnell</span></div>
+          <div class="plan-scale-hint"><span>langsam</span><span>mittel</span><span>schnell</span></div>
         </div>
         <div class="plan-field__row" id="plan-field-${idx}-${f.key}-stimp-wrap" hidden>
           <input type="number" class="plan-input" id="plan-input-${idx}-${f.key}-stimp" min="4" max="14" step="0.5">
@@ -390,6 +396,8 @@ function goStep(n) {
     const s = parseInt(dot.dataset.step, 10);
     dot.classList.toggle("step-dot--active", s === n);
     dot.classList.toggle("step-dot--done", s < n);
+    if (s === n) dot.setAttribute("aria-current", "step");
+    else dot.removeAttribute("aria-current");
   });
   updateNav();
   saveDraft();
@@ -456,9 +464,22 @@ function wirePlanSegButtons() {
 function renderPlanUI() {
   const plan = local.plan;
 
-  $("plans-step-indicator").innerHTML = plan.blocks.map((_, i) => `
-    <div class="step-dot step-dot--compact" data-step="${i + 1}" role="listitem"><span class="step-dot__num">${i + 1}</span></div>
+  // Tappable: with seven blocks, getting back to block 2 to correct a number
+  // meant five taps on Zurück. Values are optional, so jumping either way is
+  // always allowed.
+  const ind = $("plans-step-indicator");
+  ind.innerHTML = plan.blocks.map((b, i) => `
+    <button type="button" class="step-dot step-dot--compact" data-step="${i + 1}"
+            aria-label="${i + 1}. ${escapeHtml(b.title)}"><span class="step-dot__num">${i + 1}</span></button>
   `).join("");
+  ind.querySelectorAll("[data-step]").forEach((btn) => {
+    btn.onclick = () => {
+      const n = parseInt(btn.dataset.step, 10);
+      if (n === local.step) return;
+      haptic("light");
+      goStep(n);
+    };
+  });
 
   const panesEl = $("plans-step-panes");
   panesEl.innerHTML = plan.blocks.map((b, i) => paneHtml(b, i)).join("");
@@ -564,7 +585,9 @@ function historyCard(r, columns) {
   const fields = columns.map((c) => {
     let value;
     if (c.type === "greenScale") {
-      value = d.green_stimp != null ? `Stimp ${d.green_stimp}` : d.green_scale != null ? `${d.green_scale}/5` : null;
+      value = d.green_stimp != null ? `Stimp ${d.green_stimp}`
+        : d.green_scale != null ? GREEN_SPEED[d.green_scale] ?? String(d.green_scale)
+        : null;
     } else {
       const v = d[c.key];
       value = (v === null || v === undefined || v === "") ? null

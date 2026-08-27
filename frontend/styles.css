@@ -169,13 +169,24 @@ html, body {
   gap: 8px;
   padding: 10px 12px 4px;
 }
+/* A button now, not a div — tapping a number jumps to that block. Button reset
+   plus a real hit area; seven of these still fit across a narrow phone. */
 .step-dot {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: var(--tap-min);
+  padding: 0 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
   opacity: 0.8;
   transition: opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
+.step-dot:active .step-dot__num { transform: scale(0.92); }
+.step-dot__num { transition: transform 0.08s; }
 .step-dot--active, .step-dot--done { opacity: 1; }
 .step-dot__num {
   display: grid;
@@ -615,6 +626,26 @@ html, body {
   gap: 4px;
 }
 .link-secondary:hover { color: var(--primary); }
+
+/* Sign-out. It used to share .sheet-add with "+ Schläger" — dashed border,
+   green label — so the one action that ends the session looked like the one
+   that adds a club. */
+.btn-danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--input-height);
+  margin-top: 16px;
+  background: var(--card);
+  border: 1.5px solid var(--divider);
+  border-radius: var(--r-md);
+  color: var(--error);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-danger:active { background: var(--surface); }
 
 /* ── Toast (save confirmation / failure) ────────────────── */
 .toast {
@@ -1142,7 +1173,7 @@ input.plan-input[type="number"] { width: 108px; text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .sheet, .sheet-backdrop, .progress-bar-fill,
-  .counter-btn, .btn-primary, .counter-cell { transition: none; }
+  .counter-btn, .btn-primary, .counter-cell, .step-dot__num { transition: none; }
 }
 
 /* ── Login screen ───────────────────────────────────────── */

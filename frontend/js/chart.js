@@ -5,6 +5,12 @@
 //   ciLow/ciHigh (optional) draw a 95% confidence whisker around the point.
 // opts: { unit?: string, decimals?: number }  -- unit appended to labels.
 
+// Whether lineChart would draw confidence whiskers for these points, so a view
+// can explain them only when they are actually on screen.
+export function hasWhiskers(points) {
+  return points.some((p) => p.ciLow != null && p.ciHigh != null);
+}
+
 export function lineChart(points, opts = {}) {
   const unit = opts.unit ? " " + opts.unit : "";
   const dec = opts.decimals ?? 1;

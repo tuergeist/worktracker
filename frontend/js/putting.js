@@ -2,7 +2,7 @@
 
 import { api, store, onUserChange, escapeHtml, newIdempotencyKey } from "./store.js";
 import { openSheet, closeSheet, haptic, withSaveFeedback, submitOnce } from "./ui.js";
-import { lineChart } from "./chart.js";
+import { lineChart, hasWhiskers } from "./chart.js";
 
 const BUCKETS = ["1", "2", "3", "4+"];
 const LABELS = { "1": "1-Putt", "2": "2-Putts", "3": "3-Putts", "4+": "4+ Putts" };
@@ -203,7 +203,7 @@ function openPicker() {
     return `
       <div class="sheet-row" data-id="${ex.id}">
         <span class="sheet-row__label">${escapeHtml(ex.name)} · ${ex.num_balls} Bälle</span>
-        <span class="sheet-row__count" title="${n} gespeicherte Sessions">${n}</span>
+        <span class="sheet-row__count">${n === 1 ? "1 Session" : `${n} Sessions`}</span>
         ${current ? '<span class="sheet-row__check">✓</span>' : ""}
         ${canDelete ? `<button class="sheet-row__del" data-del="${ex.id}" aria-label="Übung löschen">✕</button>` : ""}
       </div>`;
@@ -358,8 +358,12 @@ async function renderStats() {
     ciHigh: d.ci != null ? d.avg_ppb + d.ci : undefined,
   }));
   // Putts/Ball improves downwards, which reads as a slump unless it says so.
+  // The whiskers went equally unexplained — vertical bars with no legend.
+  const hints = ["weniger ist besser"];
+  if (hasWhiskers(points)) hints.push("Striche: Schwankung an Tagen mit mehreren Runden");
   chart.innerHTML = points.length >= 2
-    ? `<div class="chart-card">${lineChart(points, { decimals: 2 })}<p class="chart-hint">weniger ist besser</p></div>`
+    ? `<div class="chart-card">${lineChart(points, { decimals: 2 })}` +
+      hints.map((h) => `<p class="chart-hint">${h}</p>`).join("") + `</div>`
     : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 
   // history

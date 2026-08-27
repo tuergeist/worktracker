@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, store, escapeHtml, onUserChange, newIdempotencyKey } from "./store.js";
-import { lineChart } from "./chart.js";
+import { lineChart, hasWhiskers } from "./chart.js";
 import { haptic, withSaveFeedback, submitOnce } from "./ui.js";
 
 // Starting guesses only — used until the club has enough of its own shots.
@@ -385,8 +385,10 @@ function renderStats() {
     ciLow: d.ci != null ? d.avg_carry - d.ci : undefined,
     ciHigh: d.ci != null ? d.avg_carry + d.ci : undefined,
   }));
+  const hint = hasWhiskers(points)
+    ? `<p class="chart-hint">Striche: Schwankung an Tagen mit mehreren Schlägen</p>` : "";
   chart.innerHTML = points.length >= 2
-    ? `<div class="chart-card">${lineChart(points, { unit: "m" })}</div>`
+    ? `<div class="chart-card">${lineChart(points, { unit: "m" })}${hint}</div>`
     : `<div class="chart-card"><p class="empty">Mehr Daten für einen Trend nötig.</p></div>`;
 
   const rows = (s.history || []).map((shot) => {

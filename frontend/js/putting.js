@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, store, onUserChange, escapeHtml, newIdempotencyKey } from "./store.js";
-import { openSheet, closeSheet, haptic, withSaveFeedback, submitOnce } from "./ui.js";
+import { openSheet, closeSheet, openFormSheet, haptic, withSaveFeedback, submitOnce } from "./ui.js";
 import { lineChart, hasWhiskers } from "./chart.js";
 
 const BUCKETS = ["1", "2", "3", "4+"];
@@ -251,30 +251,36 @@ function openPicker() {
   if (add) add.onclick = () => createExercise();
 }
 
-async function createExercise() {
-  const name = prompt("Name der Übung:");
-  if (!name || !name.trim()) return;
-  const distRaw = prompt("Distanz in Metern:", "2");
-  if (distRaw === null) return;
-  const ballsRaw = prompt("Anzahl Bälle:", "10");
-  if (ballsRaw === null) return;
-
-  const distance_cm = Math.round((parseFloat(distRaw) || 0) * 100);
-  const num_balls = parseInt(ballsRaw, 10) || 10;
-
-  const { ok, result: ex } = await withSaveFeedback(
-    () => api.send("/api/exercises", "POST", {
-      category: "putting",
-      name: name.trim(),
-      distance_cm,
-      num_balls,
-    }),
-    { ok: "Übung angelegt", fail: "Anlegen fehlgeschlagen." },
-  );
-  if (!ok) return;
-  await loadExercises();
-  selectExercise(ex);
-  closeSheet();
+function createExercise() {
+  openFormSheet({
+    title: "Neue Übung",
+    // Cancel returns to the picker it was opened from, rather than dropping the
+    // user back onto the record screen.
+    onCancel: () => openPicker(),
+    fields: [
+      { key: "name", label: "Name", type: "text", required: true,
+        placeholder: "z. B. Putten 4m", maxlength: 40 },
+      { key: "dist", label: "Distanz", type: "number", required: true, value: 2,
+        inputmode: "decimal", min: 0.5, max: 30, step: 0.5, suffix: "m" },
+      { key: "balls", label: "Anzahl Bälle", type: "number", required: true, value: 10,
+        inputmode: "numeric", min: 1, max: 50, step: 1 },
+    ],
+    onSubmit: async (v) => {
+      const { ok, result: ex } = await withSaveFeedback(
+        () => api.send("/api/exercises", "POST", {
+          category: "putting",
+          name: v.name,
+          distance_cm: Math.round(v.dist * 100),
+          num_balls: Math.round(v.balls),
+        }),
+        { ok: "Übung angelegt", fail: "Anlegen fehlgeschlagen." },
+      );
+      if (!ok) return false; // sheet stays open with the entry intact
+      await loadExercises();
+      selectExercise(ex);
+      return true;
+    },
+  });
 }
 
 // ----------------------------------------------------------- save

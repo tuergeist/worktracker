@@ -1,7 +1,7 @@
 "use strict";
 
 import { api, store, escapeHtml } from "./store.js";
-import { haptic, withSaveFeedback } from "./ui.js";
+import { haptic, withSaveFeedback, openFormSheet } from "./ui.js";
 
 let clubs = [];
 
@@ -61,24 +61,32 @@ function wirePage() {
   if (addClub) addClub.onclick = () => addClubFlow();
 }
 
-async function addClubFlow() {
-  const abbr = prompt("Kürzel (z. B. 7i, Dr, PW):");
-  if (!abbr || !abbr.trim()) return;
-  const name = prompt("Bezeichnung (optional):", abbr.trim());
-  const sort = clubs.length ? Math.max(...clubs.map((c) => c.sort_order)) + 10 : 100;
-  const { ok } = await withSaveFeedback(
-    () => api.send("/api/clubs", "POST", {
-      name: (name && name.trim()) || abbr.trim(),
-      abbr: abbr.trim(),
-      sort_order: sort,
-    }),
-    { ok: "Schläger angelegt", fail: "Anlegen fehlgeschlagen." },
-  );
-  if (!ok) return;
-  await loadClubs();
-  refreshRangeClubs();
-  haptic("light");
-  renderClubs();
+function addClubFlow() {
+  openFormSheet({
+    title: "Neuer Schläger",
+    fields: [
+      { key: "abbr", label: "Kürzel", type: "text", required: true, maxlength: 4,
+        placeholder: "7i", hint: "Steht auf dem Chip in der Range-Ansicht." },
+      { key: "name", label: "Bezeichnung", type: "text", placeholder: "Eisen 7" },
+    ],
+    onSubmit: async (v) => {
+      const sort = clubs.length ? Math.max(...clubs.map((c) => c.sort_order)) + 10 : 100;
+      const { ok } = await withSaveFeedback(
+        () => api.send("/api/clubs", "POST", {
+          name: v.name || v.abbr,     // the label is optional; fall back to the chip
+          abbr: v.abbr,
+          sort_order: sort,
+        }),
+        { ok: "Schläger angelegt", fail: "Anlegen fehlgeschlagen." },
+      );
+      if (!ok) return false;
+      await loadClubs();
+      refreshRangeClubs();
+      haptic("light");
+      renderClubs();
+      return true;
+    },
+  });
 }
 
 // Public: populate the settings page (main.js then switches to the view).

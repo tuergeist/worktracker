@@ -647,6 +647,28 @@ html, body {
 }
 .btn-danger:active { background: var(--surface); }
 
+/* Bottom-sheet form (new exercise / new club). Inputs reuse .plan-input so the
+   sheet matches the plan fields rather than inventing a second input style. */
+.sheet-form { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
+.sheet-field { display: flex; flex-direction: column; gap: 7px; }
+.sheet-field__label { font-size: 0.9375rem; font-weight: 600; color: var(--text-muted); }
+.sheet-field__opt { font-weight: 400; }
+.sheet-field__row { display: flex; align-items: center; gap: 10px; }
+.sheet-field__suffix { font-size: 0.9375rem; color: var(--text-muted); flex-shrink: 0; }
+.sheet-field__hint { font-size: 0.8125rem; color: var(--text-muted); }
+.sheet-form__error {
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: #fdecea;
+  color: var(--error);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.sheet-form__error[hidden] { display: none; }
+.sheet-form__actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.sheet-form__actions .btn-primary { flex: 1; }
+.sheet-form__actions .link-secondary { flex: none; width: auto; padding: 0 14px; }
+
 /* ── Toast (save confirmation / failure) ────────────────── */
 .toast {
   position: fixed;
@@ -973,6 +995,9 @@ html, body {
 }
 .plan-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 input.plan-input[type="number"] { width: 108px; text-align: center; }
+/* Same footprint for the sheet form, which uses text inputs so a German
+   comma survives — see openFormSheet. */
+.plan-input--narrow { width: 108px; text-align: center; }
 .plan-input--wide { width: 100%; }
 
 .plan-punch { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 4px; }

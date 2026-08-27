@@ -1,12 +1,22 @@
 "use strict";
 
+import { escapeHtml } from "./store.js";
+
 // Shared UI helpers: generic bottom sheet + haptic feedback.
 
 const backdrop = () => document.getElementById("sheet-backdrop");
 const sheetEl = () => document.getElementById("sheet");
 
 // Open the generic bottom sheet with a title and HTML body.
+// closeSheet hides the sheet on a timer so the slide-out can play. Reopening
+// within that window (cancel on the new-exercise form returns to the picker)
+// used to render the new content and then have the stale timer hide it.
+let sheetHideTimer = null;
+
 export function openSheet({ title = "", bodyHtml = "" } = {}) {
+  clearTimeout(sheetHideTimer);
+  sheetHideTimer = null;
+
   document.getElementById("sheet-title").textContent = title;
   document.getElementById("sheet-body").innerHTML = bodyHtml;
 
@@ -30,12 +40,112 @@ export function closeSheet() {
   sh.classList.remove("sheet--open");
 
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const finish = () => { bd.hidden = true; sh.hidden = true; };
+  const finish = () => { sheetHideTimer = null; bd.hidden = true; sh.hidden = true; };
+  clearTimeout(sheetHideTimer);
   if (reduce) {
     finish();
   } else {
-    setTimeout(finish, 200);
+    sheetHideTimer = setTimeout(finish, 200);
   }
+}
+
+// A small form inside the bottom sheet, replacing chains of native prompt().
+// Three prompts in a row is bad on a phone at the best of times, and iOS Safari
+// offers to suppress the second one — after which creating an exercise silently
+// half-works. This keeps every field on screen at once, with the numeric
+// keypad where it belongs and errors shown in place instead of in another
+// dialog.
+//
+// fields: [{ key, label, type, value, placeholder, inputmode, min, max, step,
+//            required, suffix, hint }]
+// onSubmit(values) -> truthy to close the sheet, falsy to leave it open so the
+// entry survives a failed request.
+export function openFormSheet({ title, fields, submitLabel = "Anlegen", onCancel, onSubmit }) {
+  const rows = fields.map((f) => {
+    const num = f.type === "number";
+    // Deliberately type="text" even for numbers, with inputmode for the keypad.
+    // A type="number" input discards anything it cannot parse as a float, and a
+    // German keyboard's decimal separator is a comma — "3,5" arrived as an
+    // empty string and the form claimed the field was missing. min/max stay in
+    // the spec and are enforced below rather than by the browser.
+    const attrs = [
+      `id="form-${f.key}"`,
+      `type="text"`,
+      `class="plan-input ${num ? "plan-input--narrow" : "plan-input--wide"}"`,
+      f.value != null ? `value="${escapeHtml(String(f.value))}"` : "",
+      f.placeholder ? `placeholder="${escapeHtml(f.placeholder)}"` : "",
+      f.inputmode ? `inputmode="${f.inputmode}"` : "",
+      f.maxlength != null ? `maxlength="${f.maxlength}"` : "",
+    ].filter(Boolean).join(" ");
+    return `
+      <label class="sheet-field">
+        <span class="sheet-field__label">${escapeHtml(f.label)}${f.required ? "" : " <span class=\"sheet-field__opt\">(optional)</span>"}</span>
+        <span class="sheet-field__row">
+          <input ${attrs} />
+          ${f.suffix ? `<span class="sheet-field__suffix">${escapeHtml(f.suffix)}</span>` : ""}
+        </span>
+        ${f.hint ? `<span class="sheet-field__hint">${escapeHtml(f.hint)}</span>` : ""}
+      </label>`;
+  }).join("");
+
+  openSheet({
+    title,
+    bodyHtml: `
+      <form id="sheet-form" class="sheet-form" novalidate>
+        ${rows}
+        <p id="sheet-form-error" class="sheet-form__error" role="alert" hidden></p>
+        <div class="sheet-form__actions">
+          <button type="button" id="sheet-form-cancel" class="link-secondary">Abbrechen</button>
+          <button type="submit" id="sheet-form-submit" class="btn-primary">${escapeHtml(submitLabel)}</button>
+        </div>
+      </form>`,
+  });
+
+  const form = document.getElementById("sheet-form");
+  const err = document.getElementById("sheet-form-error");
+  const submit = document.getElementById("sheet-form-submit");
+
+  const showError = (msg, key) => {
+    err.textContent = msg;
+    err.hidden = false;
+    const el = key && document.getElementById(`form-${key}`);
+    if (el) el.focus();
+  };
+
+  document.getElementById("sheet-form-cancel").onclick = () => {
+    closeSheet();
+    if (onCancel) onCancel();
+  };
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    err.hidden = true;
+
+    const values = {};
+    for (const f of fields) {
+      const raw = document.getElementById(`form-${f.key}`).value.trim();
+      if (f.required && !raw) return showError(`${f.label} fehlt.`, f.key);
+      if (f.type === "number" && raw) {
+        const n = Number(raw.replace(",", ".")); // German keyboards give a comma
+        if (!isFinite(n)) return showError(`${f.label}: keine gültige Zahl.`, f.key);
+        if (f.min != null && n < f.min) return showError(`${f.label}: mindestens ${f.min}.`, f.key);
+        if (f.max != null && n > f.max) return showError(`${f.label}: höchstens ${f.max}.`, f.key);
+        values[f.key] = n;
+      } else {
+        values[f.key] = raw;
+      }
+    }
+
+    // Guarded like every other write, so a double tap cannot create two rows.
+    // Compared against true, not just truthiness: a submit that was dropped as
+    // already-in-flight returns a marker object, and Enter in a text field
+    // still submits even while the button is disabled.
+    const done = await submitOnce(submit, "Legt an …", () => onSubmit(values));
+    if (done === true) closeSheet();
+  };
+
+  const first = document.getElementById(`form-${fields[0].key}`);
+  if (first) first.focus();
 }
 
 // Short status message above the tab bar. The app has no other channel for

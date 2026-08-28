@@ -15,10 +15,6 @@ env:
   # path in three places — so a rename would have silently pointed the deploy at
   # an image nobody publishes any more.
   IMAGE_NAME: ${{ github.repository_owner }}/scratchlab
-  # Transitional second target so the path k8s-infra currently deploys from
-  # keeps receiving tags. Drop this, and the extra line under `images:` below,
-  # once k8s-infra references scratchlab.
-  LEGACY_IMAGE_NAME: ${{ github.repository_owner }}/worktracker
 
 jobs:
   # requirements.txt is generated from requirements.in, and nothing stops the
@@ -84,9 +80,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ env.REGISTRY }}/${{ env.LEGACY_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr

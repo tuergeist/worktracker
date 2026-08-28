@@ -58,4 +58,3 @@ __pycache__/
 tools/putt-analyzer/venv/
 tools/putt-analyzer/.pytest_cache/
 **/__pycache__/
-k8s/secret.yaml

@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: worktracker-db
+    container_name: scratchlab-db
     environment:
       - POSTGRES_USER=worktracker
       - POSTGRES_PASSWORD=worktracker
@@ -17,8 +17,8 @@ services:
 
   migrate:
     build: .
-    image: worktracker
-    container_name: worktracker-migrate
+    image: scratchlab
+    container_name: scratchlab-migrate
     depends_on:
       db:
         condition: service_healthy
@@ -29,8 +29,8 @@ services:
 
   app:
     build: .
-    image: worktracker
-    container_name: worktracker
+    image: scratchlab
+    container_name: scratchlab
     depends_on:
       db:
         condition: service_healthy

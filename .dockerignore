@@ -2,7 +2,7 @@
 .gitignore
 __pycache__
 *.pyc
-backend/worktracker.db
+*.db
 data
 _bmad
 _bmad-output

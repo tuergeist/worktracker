@@ -7,7 +7,7 @@ Zaehlt Golfbaelle auf einem Gruen, misst ihre Distanz zum Loch und beantwortet:
   - wie viele Baelle insgesamt auf dem Gruen liegen
   - Baelle IM Loch werden separat gezaehlt, nicht mitgerechnet
 
-Passt zur worktracker-Uebung "Putten aus 1 m, 10 Baelle": Foto statt Handzaehlung.
+Passt zur scratchlab-Uebung "Putten aus 1 m, 10 Baelle": Foto statt Handzaehlung.
 
 ARCHITEKTUR - "VLM grob + CV fein" (rotationsinvariant, robust):
 

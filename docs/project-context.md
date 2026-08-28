@@ -1,5 +1,5 @@
 ---
-project_name: 'worktracker — Golf Training'
+project_name: 'scratchlab — Golf Training'
 date: '2026-06-18'
 sections_completed: ['technology_stack', 'implementation_rules', 'data_model', 'conventions', 'gotchas']
 generated_by: 'BMAD bmad-generate-project-context'
@@ -78,7 +78,7 @@ frontend/
 - Timestamps stored UTC-naive by SQLite `datetime('now')`; frontend appends `"Z"` before `new Date(...)`.
 
 ## Gotchas / Don't-miss
-- `backend/worktracker.db` and `*.db` are **gitignored** — never commit the DB. It is recreated and re-seeded on first run.
+- `*.db` is **gitignored**. The app is Postgres-only — there is no SQLite path any more; a leftover `backend/worktracker.db` from the early days is not used by anything.
 - When testing locally, the DB persists between runs; delete it to re-trigger seeding/migrations.
 - There are **no automated tests yet**; verification is done by running uvicorn and curling `/api/...`. New backend logic should be added in a way that keeps `stats.py` unit-testable.
 - Git: work is committed to `master` per the user's instruction. Keep commits focused; user-facing summaries in German.

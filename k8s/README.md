@@ -1,5 +1,12 @@
 # Kubernetes deploy
 
+> **Nicht die Quelle der Wahrheit.** Produktiv deployt `expert-sieve/k8s-infra`
+> aus `apps/scratchlab/`; die Manifeste hier sind ein älterer Abzug und laufen
+> auseinander — sie sprechen noch von `worktracker-secrets`, produktiv heisst es
+> `scratchlab-secrets`. Nicht blind `kubectl apply`en. Änderungen am laufenden
+> Betrieb gehören nach k8s-infra.
+
+
 Manifests for the Golf Training app + a Postgres database.
 
 ## Files
